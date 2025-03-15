@@ -10,7 +10,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Load the model
-model = tf.keras.models.load_model("place_detection_model.h5", compile=False)
+model = tf.keras.models.load_model("https://storage.cloud.google.com/ctrack-model/place_detection_model.h5", compile=False)
 model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
 
 
