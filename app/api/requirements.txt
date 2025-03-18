@@ -3,4 +3,5 @@ flask-cors
 tensorflow
 numpy
 keras
+requests
 pillow

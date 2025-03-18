@@ -5,16 +5,28 @@ import numpy as np
 from keras.preprocessing import image
 import io
 from PIL import Image
+import os
+import requests
 
 app = Flask(__name__)
 CORS(app)
 
+# Path to the local model
+MODEL_PATH = "place_detection_model.h5"
+MODEL_URL = "https://storage.googleapis.com/ctrack-model/place_detection_model.h5"
+
+# Download the model if not already present
+if not os.path.exists(MODEL_PATH):
+    print("Downloading model...")
+    response = requests.get(MODEL_URL)
+    with open(MODEL_PATH, 'wb') as f:
+        f.write(response.content)
+    print("Model downloaded.")
+
 # Load the model
-model = tf.keras.models.load_model(
-    "https://storage.googleapis.com/ctrack-model/place_detection_model.h5", compile=False)
+model = tf.keras.models.load_model(MODEL_PATH, compile=False)
 model.compile(optimizer="adam", loss="categorical_crossentropy",
               metrics=["accuracy"])
-
 
 # Define class labels
 class_labels = [
@@ -32,17 +44,14 @@ def predict():
 
     file = request.files['image']
 
-    # Read and preprocess the image
     img = Image.open(io.BytesIO(file.read()))
     img = img.resize((224, 224))
     img_array = image.img_to_array(img) / 255.0
     img_array = np.expand_dims(img_array, axis=0)
 
-    # Make prediction
     predictions = model.predict(img_array)
     predicted_class = np.argmax(predictions, axis=1)[0]
 
-    # Create response
     response = {
         'predicted_class': class_labels[predicted_class],
         'probabilities': {
