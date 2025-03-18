@@ -1,13 +1,23 @@
 'use client';
 
 import { useState } from 'react';
+import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import ImageUploader from '@/components/ImageUploader';
-import LocationSelector from '@/components/LocationSelector';
-import NavigationMap from '@/components/NavigationMap';
 import { campusLocations } from '@/lib/campus-data';
+
+// 🔁 Dynamically import components to avoid SSR issues
+const ImageUploader = dynamic(() => import('@/components/ImageUploader'), { ssr: false });
+const LocationSelector = dynamic(() => import('@/components/LocationSelector'), { ssr: false });
+const NavigationMap = dynamic(() => import('@/components/NavigationMap'), { ssr: false });
 
 type LocationState = 'detection' | 'destination' | 'navigation';
 
@@ -37,7 +47,6 @@ export default function LocationDetection() {
       });
       return;
     }
-    
     setLocationState('navigation');
   };
 
@@ -54,7 +63,7 @@ export default function LocationDetection() {
         <h2 className="text-3xl font-bold tracking-tight text-center mb-8">
           Find Your Way Around Campus
         </h2>
-        
+
         <Card className="w-full">
           <CardHeader>
             <CardTitle>Campus Navigation</CardTitle>
@@ -64,29 +73,29 @@ export default function LocationDetection() {
               {locationState === 'navigation' && "Follow the route to your destination"}
             </CardDescription>
           </CardHeader>
-          
+
           <CardContent>
             {locationState === 'detection' && (
               <div className="space-y-6">
                 <ImageUploader onImageUpload={handleImageUpload} />
               </div>
             )}
-            
+
             {locationState === 'destination' && (
               <div className="space-y-6">
                 <div className="p-4 bg-muted rounded-lg mb-6">
                   <h3 className="font-medium mb-2">Your Current Location:</h3>
                   <p className="text-xl font-bold">{currentLocation}</p>
                   {uploadedImage && (
-                    <img 
-                      src={uploadedImage} 
-                      alt="Uploaded location" 
+                    <img
+                      src={uploadedImage}
+                      alt="Uploaded location"
                       className="mt-4 max-h-[200px] rounded-md object-contain"
                     />
                   )}
                 </div>
-                
-                <LocationSelector 
+
+                <LocationSelector
                   locations={campusLocations.map(loc => loc.name)}
                   currentLocation={currentLocation || ''}
                   onSelect={handleDestinationSelect}
@@ -94,7 +103,7 @@ export default function LocationDetection() {
                 />
               </div>
             )}
-            
+
             {locationState === 'navigation' && currentLocation && destinationLocation && (
               <div className="space-y-6">
                 <div className="flex justify-between items-start mb-4">
@@ -107,9 +116,9 @@ export default function LocationDetection() {
                     <p className="font-bold">{destinationLocation}</p>
                   </div>
                 </div>
-                
+
                 <div className="h-[400px] w-full rounded-lg overflow-hidden border">
-                  <NavigationMap 
+                  <NavigationMap
                     startLocation={currentLocation}
                     endLocation={destinationLocation}
                   />
@@ -117,12 +126,12 @@ export default function LocationDetection() {
               </div>
             )}
           </CardContent>
-          
+
           <CardFooter className="flex justify-between">
             <Button variant="outline" onClick={resetProcess}>
               Start Over
             </Button>
-            
+
             {locationState === 'destination' && (
               <Button onClick={handleProceedToNavigation}>
                 Get Directions
