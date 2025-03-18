@@ -5,28 +5,32 @@ import numpy as np
 from keras.preprocessing import image
 import io
 from PIL import Image
-import os
 import requests
 
 app = Flask(__name__)
 CORS(app)
 
-# Path to the local model
-MODEL_PATH = "place_detection_model.h5"
+# Cloud-hosted model URL
 MODEL_URL = "https://storage.googleapis.com/ctrack-model/place_detection_model.h5"
 
-# Download the model if not already present
-if not os.path.exists(MODEL_PATH):
-    print("Downloading model...")
-    response = requests.get(MODEL_URL)
-    with open(MODEL_PATH, 'wb') as f:
-        f.write(response.content)
-    print("Model downloaded.")
+# Load model from URL into memory without saving
 
-# Load the model
-model = tf.keras.models.load_model(MODEL_PATH, compile=False)
-model.compile(optimizer="adam", loss="categorical_crossentropy",
-              metrics=["accuracy"])
+
+def load_model_from_url(url):
+    print("Loading model from URL...")
+    response = requests.get(url)
+    if response.status_code != 200:
+        raise ValueError("Failed to fetch model from URL.")
+    model_bytes = io.BytesIO(response.content)
+    model = tf.keras.models.load_model(model_bytes, compile=False)
+    model.compile(optimizer="adam",
+                  loss="categorical_crossentropy", metrics=["accuracy"])
+    print("Model loaded successfully.")
+    return model
+
+
+# Load model once at startup
+model = load_model_from_url(MODEL_URL)
 
 # Define class labels
 class_labels = [
