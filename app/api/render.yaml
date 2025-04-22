@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: ctrack-locator
+    env: python
+    buildCommand: pip install -r app/api/requirements.txt
+    startCommand: cd app/api && gunicorn server:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.0
+    plan: free
+    healthCheckPath: /health
