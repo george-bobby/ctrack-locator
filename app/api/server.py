@@ -13,26 +13,17 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-# Configure CORS to explicitly allow requests from your Vercel domain
-CORS(app, resources={
-    r"/*": {
-        "origins": [
-            "https://ctrack-locator.vercel.app",
-            "http://ctrack-locator.vercel.app",
-            "http://localhost:3000",
-            "*"
-        ],
-        "methods": ["GET", "POST", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization"]
-    }
-})
+# Configure CORS to allow all origins and methods
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
-# Add CORS headers to all responses
+# Add permissive CORS headers to all responses
 @app.after_request
 def add_cors_headers(response):
     response.headers.add('Access-Control-Allow-Origin', '*')
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-    response.headers.add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
+    response.headers.add('Access-Control-Allow-Headers', '*')
+    response.headers.add('Access-Control-Allow-Methods', '*')
+    response.headers.add('Access-Control-Allow-Credentials', 'true')
+    response.headers.add('Access-Control-Max-Age', '86400')
     return response
 
 # TFLite model and interpreter
@@ -69,32 +60,45 @@ class_labels = [
     'Block 6', 'Amphi theater'
 ]
 
+@app.route('/', methods=['GET'])
+def root():
+    """Root endpoint with API information"""
+    return jsonify({
+        'name': 'C-Track Locator API',
+        'version': '1.0.0',
+        'description': 'API for campus location detection',
+        'endpoints': {
+            '/predict': 'POST - Predict location from image',
+            '/health': 'GET - Health check',
+            '/cors-test': 'GET - Test CORS configuration'
+        }
+    })
+
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint for Render to detect the service"""
     return jsonify({'status': 'healthy'}), 200
 
-@app.route('/cors-test', methods=['GET', 'OPTIONS'])
+@app.route('/cors-test', methods=['GET', 'OPTIONS', 'POST', 'PUT', 'DELETE', 'PATCH'])
 def cors_test():
     """Test endpoint for CORS"""
     if request.method == 'OPTIONS':
-        # Handle preflight request
-        response = jsonify({'status': 'ok'})
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-        response.headers.add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
-        return response
-    return jsonify({'cors': 'enabled'})
+        # Handle preflight request with maximum permissiveness
+        return '', 204
+    return jsonify({'cors': 'enabled', 'message': 'CORS is fully permissive'})
 
-@app.route('/predict', methods=['POST', 'OPTIONS'])
+@app.route('/predict', methods=['POST', 'OPTIONS', 'GET', 'PUT', 'DELETE', 'PATCH'])
 def predict():
-    # Handle preflight OPTIONS request
+    # Handle preflight OPTIONS request with maximum permissiveness
     if request.method == 'OPTIONS':
-        response = jsonify({'status': 'ok'})
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-        response.headers.add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
-        return response
+        return '', 204
+
+    # For non-POST methods (except OPTIONS), return a helpful message
+    if request.method != 'POST':
+        return jsonify({
+            'message': 'This endpoint accepts POST requests with an image file',
+            'usage': 'Send a POST request with an image file in the "image" field'
+        })
 
     if 'image' not in request.files:
         return jsonify({'error': 'No image provided'}), 400
@@ -142,17 +146,11 @@ def predict():
         for idx in top_indices:
             response['probabilities'][class_labels[idx]] = float(predictions[0][idx])
 
-        # Create response with CORS headers
-        resp = jsonify(response)
-        resp.headers.add('Access-Control-Allow-Origin', '*')
-        resp.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-        return resp
+        # Let the global after_request handler add CORS headers
+        return jsonify(response)
     except Exception as e:
         logger.error(f"Error during prediction: {e}")
-        resp = jsonify({'error': str(e)})
-        resp.headers.add('Access-Control-Allow-Origin', '*')
-        resp.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-        return resp, 500
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
