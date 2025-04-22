@@ -2,7 +2,6 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import tensorflow as tf
 import numpy as np
-from keras.preprocessing import image
 import io
 from PIL import Image
 import os
@@ -15,44 +14,29 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app)
 
-# Configure TensorFlow to use less memory
-tf.config.set_visible_devices([], 'GPU')  # Hide GPU devices
-tf.config.threading.set_intra_op_parallelism_threads(1)
-tf.config.threading.set_inter_op_parallelism_threads(1)
+# TFLite model and interpreter
+interpreter = None
 
-# Limit TensorFlow memory usage
-gpus = tf.config.list_physical_devices('GPU')
-if gpus:
-    try:
-        for gpu in gpus:
-            tf.config.experimental.set_memory_growth(gpu, True)
-        logger.info(f"Memory growth enabled on {len(gpus)} GPU devices")
-    except Exception as e:
-        logger.warning(f"Error setting memory growth: {e}")
-
-# Load the model lazily - only when needed
-model = None
-
-def load_model_if_needed():
-    global model
-    if model is None:
-        logger.info("Loading model...")
+def load_tflite_model_if_needed():
+    """Load the TensorFlow Lite model if it's not already loaded"""
+    global interpreter
+    if interpreter is None:
         try:
-            # Set memory constraints before loading model
-            gpus = tf.config.list_physical_devices('GPU')
-            if not gpus:
-                logger.info("No GPUs available, using CPU only")
+            logger.info("Loading TensorFlow Lite model...")
+            # Check if TFLite model exists, if not, convert it
+            if not os.path.exists("model.tflite"):
+                logger.info("TFLite model not found, converting from H5...")
+                from convert_to_tflite import convert_h5_to_tflite
+                convert_h5_to_tflite("model.h5", "model.tflite")
 
-            # Load with memory-efficient settings
-            model = tf.keras.models.load_model("model.h5", compile=False)
-            model.compile(
-                optimizer=tf.keras.optimizers.legacy.Adam(learning_rate=0.001),
-                loss="categorical_crossentropy",
-                metrics=["accuracy"]
-            )
+            # Load the TFLite model
+            interpreter = tf.lite.Interpreter(model_path="model.tflite")
+            interpreter.allocate_tensors()
+
+            # Get input and output details
             logger.info("Model loaded successfully")
         except Exception as e:
-            logger.error(f"Error loading model: {e}")
+            logger.error(f"Error loading TFLite model: {e}")
             raise
 
 
@@ -75,23 +59,36 @@ def predict():
         return jsonify({'error': 'No image provided'}), 400
 
     try:
-        # Load model if not already loaded
-        load_model_if_needed()
+        # Load TFLite model if not already loaded
+        load_tflite_model_if_needed()
 
         file = request.files['image']
 
         # Read and preprocess the image
         img = Image.open(io.BytesIO(file.read()))
         img = img.resize((224, 224))
-        img_array = image.img_to_array(img) / 255.0
+        img_array = np.array(img, dtype=np.float32) / 255.0
         img_array = np.expand_dims(img_array, axis=0)
 
-        # Make prediction with memory cleanup
-        logger.info("Running prediction")
-        with tf.device('/CPU:0'):  # Force CPU usage
-            predictions = model.predict(img_array, batch_size=1)
+        # Get input and output tensors
+        input_details = interpreter.get_input_details()
+        output_details = interpreter.get_output_details()
 
-        predicted_class = np.argmax(predictions, axis=1)[0]
+        # Check if the input shape matches
+        if list(img_array.shape) != input_details[0]['shape']:
+            logger.info(f"Reshaping input from {img_array.shape} to {input_details[0]['shape']}")
+            img_array = np.reshape(img_array, input_details[0]['shape'])
+
+        # Set the input tensor
+        interpreter.set_tensor(input_details[0]['index'], img_array)
+
+        # Run inference
+        logger.info("Running TFLite inference")
+        interpreter.invoke()
+
+        # Get the output tensor
+        predictions = interpreter.get_tensor(output_details[0]['index'])
+        predicted_class = np.argmax(predictions[0])
 
         # Create response with minimal memory usage
         response = {

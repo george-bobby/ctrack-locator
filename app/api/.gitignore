@@ -1,0 +1,17 @@
+# Ignore model files (they're too large for Git)
+# Uncomment these if you want to exclude them from Git
+# model.h5
+# model.tflite
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+env/
+ENV/
+
+# Logs
+*.log
