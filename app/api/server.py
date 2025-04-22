@@ -12,7 +12,28 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-CORS(app)
+
+# Configure CORS to explicitly allow requests from your Vercel domain
+CORS(app, resources={
+    r"/*": {
+        "origins": [
+            "https://ctrack-locator.vercel.app",
+            "http://ctrack-locator.vercel.app",
+            "http://localhost:3000",
+            "*"
+        ],
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"]
+    }
+})
+
+# Add CORS headers to all responses
+@app.after_request
+def add_cors_headers(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
+    return response
 
 # TFLite model and interpreter
 interpreter = None
@@ -53,8 +74,28 @@ def health_check():
     """Health check endpoint for Render to detect the service"""
     return jsonify({'status': 'healthy'}), 200
 
-@app.route('/predict', methods=['POST'])
+@app.route('/cors-test', methods=['GET', 'OPTIONS'])
+def cors_test():
+    """Test endpoint for CORS"""
+    if request.method == 'OPTIONS':
+        # Handle preflight request
+        response = jsonify({'status': 'ok'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
+        return response
+    return jsonify({'cors': 'enabled'})
+
+@app.route('/predict', methods=['POST', 'OPTIONS'])
 def predict():
+    # Handle preflight OPTIONS request
+    if request.method == 'OPTIONS':
+        response = jsonify({'status': 'ok'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
+        return response
+
     if 'image' not in request.files:
         return jsonify({'error': 'No image provided'}), 400
 
@@ -101,10 +142,17 @@ def predict():
         for idx in top_indices:
             response['probabilities'][class_labels[idx]] = float(predictions[0][idx])
 
-        return jsonify(response)
+        # Create response with CORS headers
+        resp = jsonify(response)
+        resp.headers.add('Access-Control-Allow-Origin', '*')
+        resp.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        return resp
     except Exception as e:
         logger.error(f"Error during prediction: {e}")
-        return jsonify({'error': str(e)}), 500
+        resp = jsonify({'error': str(e)})
+        resp.headers.add('Access-Control-Allow-Origin', '*')
+        resp.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        return resp, 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
