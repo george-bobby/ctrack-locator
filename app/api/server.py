@@ -15,16 +15,18 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app)
 
-# Disable eager execution to reduce memory usage
-tf.compat.v1.disable_eager_execution()
+# Configure TensorFlow to use less memory
+tf.config.set_visible_devices([], 'GPU')  # Hide GPU devices
+tf.config.threading.set_intra_op_parallelism_threads(1)
+tf.config.threading.set_inter_op_parallelism_threads(1)
 
-# Set memory growth to avoid OOM issues
-physical_devices = tf.config.list_physical_devices('GPU')
-if physical_devices:
+# Limit TensorFlow memory usage
+gpus = tf.config.list_physical_devices('GPU')
+if gpus:
     try:
-        for device in physical_devices:
-            tf.config.experimental.set_memory_growth(device, True)
-        logger.info(f"Memory growth enabled on {len(physical_devices)} GPU devices")
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+        logger.info(f"Memory growth enabled on {len(gpus)} GPU devices")
     except Exception as e:
         logger.warning(f"Error setting memory growth: {e}")
 
@@ -36,8 +38,18 @@ def load_model_if_needed():
     if model is None:
         logger.info("Loading model...")
         try:
+            # Set memory constraints before loading model
+            gpus = tf.config.list_physical_devices('GPU')
+            if not gpus:
+                logger.info("No GPUs available, using CPU only")
+
+            # Load with memory-efficient settings
             model = tf.keras.models.load_model("model.h5", compile=False)
-            model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
+            model.compile(
+                optimizer=tf.keras.optimizers.legacy.Adam(learning_rate=0.001),
+                loss="categorical_crossentropy",
+                metrics=["accuracy"]
+            )
             logger.info("Model loaded successfully")
         except Exception as e:
             logger.error(f"Error loading model: {e}")
@@ -74,19 +86,23 @@ def predict():
         img_array = image.img_to_array(img) / 255.0
         img_array = np.expand_dims(img_array, axis=0)
 
-        # Make prediction
+        # Make prediction with memory cleanup
         logger.info("Running prediction")
-        predictions = model.predict(img_array)
+        with tf.device('/CPU:0'):  # Force CPU usage
+            predictions = model.predict(img_array, batch_size=1)
+
         predicted_class = np.argmax(predictions, axis=1)[0]
 
-        # Create response
+        # Create response with minimal memory usage
         response = {
             'predicted_class': class_labels[predicted_class],
-            'probabilities': {
-                label: float(prob)
-                for label, prob in zip(class_labels, predictions[0].tolist())
-            }
+            'probabilities': {}
         }
+
+        # Add top 3 probabilities only to save memory
+        top_indices = np.argsort(predictions[0])[-3:][::-1]
+        for idx in top_indices:
+            response['probabilities'][class_labels[idx]] = float(predictions[0][idx])
 
         return jsonify(response)
     except Exception as e:
