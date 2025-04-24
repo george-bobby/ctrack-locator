@@ -38,13 +38,23 @@ export async function predictLocation(imageFile: File) {
 		const formData = new FormData();
 		formData.append('image', imageFile);
 
-		const response = await fetch(
-			`${process.env.NEXT_PUBLIC_BACKEND_URL}predict`,
-			{
-				method: 'POST',
-				body: formData,
-			}
-		);
+		// Make sure the URL has a trailing slash before 'predict'
+		const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || '';
+		const url = baseUrl.endsWith('/')
+			? `${baseUrl}predict`
+			: `${baseUrl}/predict`;
+
+		console.log('Sending prediction request to:', url); // Debug log
+
+		const response = await fetch(url, {
+			method: 'POST',
+			body: formData,
+			mode: 'cors', // Explicitly set CORS mode
+			headers: {
+				// Don't set Content-Type header when sending FormData
+				// It will be set automatically with the correct boundary
+			},
+		});
 
 		if (!response.ok) {
 			throw new Error('Failed to get a response from the server.');

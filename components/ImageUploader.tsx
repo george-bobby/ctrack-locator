@@ -82,9 +82,20 @@ export default function ImageUploader({ onImageUpload }: ImageUploaderProps) {
       const formData = new FormData();
       formData.append('image', blob, 'image.jpg');
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}predict`, {
+      // Make sure the URL has a trailing slash before 'predict'
+      const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || '';
+      const url = baseUrl.endsWith('/') ? `${baseUrl}predict` : `${baseUrl}/predict`;
+
+      console.log('Sending request to:', url); // Debug log
+
+      const res = await fetch(url, {
         method: 'POST',
         body: formData,
+        mode: 'cors', // Explicitly set CORS mode
+        headers: {
+          // Don't set Content-Type header when sending FormData
+          // It will be set automatically with the correct boundary
+        },
       });
 
 

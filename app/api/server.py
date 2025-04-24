@@ -13,17 +13,17 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-# Configure CORS to allow all origins and methods
-CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
+# Configure CORS to explicitly allow requests from Vercel frontend
+CORS(app)
 
-# Add permissive CORS headers to all responses
+# Add CORS headers to all responses
 @app.after_request
 def add_cors_headers(response):
-    response.headers.add('Access-Control-Allow-Origin', '*')
-    response.headers.add('Access-Control-Allow-Headers', '*')
-    response.headers.add('Access-Control-Allow-Methods', '*')
-    response.headers.add('Access-Control-Allow-Credentials', 'true')
-    response.headers.add('Access-Control-Max-Age', '86400')
+    # Set the specific origin for your Vercel app
+    response.headers.set('Access-Control-Allow-Origin', 'https://ctrack-locator.vercel.app')
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
+    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+    response.headers.set('Access-Control-Max-Age', '86400')
     return response
 
 # TFLite model and interpreter
@@ -60,13 +60,24 @@ class_labels = [
     'Block 6', 'Amphi theater'
 ]
 
-@app.route('/', methods=['GET'])
+@app.route('/', methods=['GET', 'OPTIONS'])
 def root():
     """Root endpoint with API information"""
+    if request.method == 'OPTIONS':
+        # Handle preflight request
+        response = jsonify({'status': 'ok'})
+        response.headers.set('Access-Control-Allow-Origin', 'https://ctrack-locator.vercel.app')
+        response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
+        response.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS')
+        response.headers.set('Access-Control-Max-Age', '86400')
+        return response
+
     return jsonify({
         'name': 'C-Track Locator API',
         'version': '1.0.0',
         'description': 'API for campus location detection',
+        'status': 'online',
+        'cors': 'configured for https://ctrack-locator.vercel.app',
         'endpoints': {
             '/predict': 'POST - Predict location from image',
             '/health': 'GET - Health check',
@@ -83,15 +94,30 @@ def health_check():
 def cors_test():
     """Test endpoint for CORS"""
     if request.method == 'OPTIONS':
-        # Handle preflight request with maximum permissiveness
-        return '', 204
-    return jsonify({'cors': 'enabled', 'message': 'CORS is fully permissive'})
+        # Handle preflight request
+        response = jsonify({'status': 'ok'})
+        response.headers.set('Access-Control-Allow-Origin', 'https://ctrack-locator.vercel.app')
+        response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
+        response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+        response.headers.set('Access-Control-Max-Age', '86400')
+        return response
+
+    return jsonify({
+        'cors': 'enabled',
+        'message': 'CORS is configured for https://ctrack-locator.vercel.app',
+        'allowed_origin': 'https://ctrack-locator.vercel.app'
+    })
 
 @app.route('/predict', methods=['POST', 'OPTIONS', 'GET', 'PUT', 'DELETE', 'PATCH'])
 def predict():
-    # Handle preflight OPTIONS request with maximum permissiveness
+    # Handle preflight OPTIONS request
     if request.method == 'OPTIONS':
-        return '', 204
+        response = jsonify({'status': 'ok'})
+        response.headers.set('Access-Control-Allow-Origin', 'https://ctrack-locator.vercel.app')
+        response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
+        response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+        response.headers.set('Access-Control-Max-Age', '86400')
+        return response
 
     # For non-POST methods (except OPTIONS), return a helpful message
     if request.method != 'POST':
