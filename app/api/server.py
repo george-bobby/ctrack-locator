@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, make_response
 from flask_cors import CORS
 import tensorflow as tf
 import numpy as np
@@ -6,6 +6,7 @@ import io
 from PIL import Image
 import os
 import logging
+from functools import wraps
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -13,18 +14,19 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-# Configure CORS to explicitly allow requests from Vercel frontend
-CORS(app)
+# Completely disable CORS by allowing all origins
+CORS(app, resources={r"/*": {"origins": "*"}})
 
-# Add CORS headers to all responses
-@app.after_request
-def add_cors_headers(response):
-    # Set the specific origin for your Vercel app
-    response.headers.set('Access-Control-Allow-Origin', 'https://ctrack-locator.vercel.app')
-    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
-    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-    response.headers.set('Access-Control-Max-Age', '86400')
-    return response
+# CORS decorator for all routes
+def cors_headers(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        resp = make_response(f(*args, **kwargs))
+        resp.headers['Access-Control-Allow-Origin'] = '*'
+        resp.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS, PUT, DELETE'
+        resp.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
+        return resp
+    return decorated_function
 
 # TFLite model and interpreter
 interpreter = None
@@ -61,23 +63,18 @@ class_labels = [
 ]
 
 @app.route('/', methods=['GET', 'OPTIONS'])
+@cors_headers
 def root():
     """Root endpoint with API information"""
     if request.method == 'OPTIONS':
-        # Handle preflight request
-        response = jsonify({'status': 'ok'})
-        response.headers.set('Access-Control-Allow-Origin', 'https://ctrack-locator.vercel.app')
-        response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
-        response.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS')
-        response.headers.set('Access-Control-Max-Age', '86400')
-        return response
+        return jsonify({'status': 'ok'})
 
     return jsonify({
         'name': 'C-Track Locator API',
         'version': '1.0.0',
         'description': 'API for campus location detection',
         'status': 'online',
-        'cors': 'configured for https://ctrack-locator.vercel.app',
+        'cors': 'configured to allow all origins (*)',
         'endpoints': {
             '/predict': 'POST - Predict location from image',
             '/health': 'GET - Health check',
@@ -85,39 +82,35 @@ def root():
         }
     })
 
-@app.route('/health', methods=['GET'])
+@app.route('/health', methods=['GET', 'OPTIONS'])
+@cors_headers
 def health_check():
     """Health check endpoint for Render to detect the service"""
-    return jsonify({'status': 'healthy'}), 200
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'})
+    return jsonify({'status': 'healthy'})
 
 @app.route('/cors-test', methods=['GET', 'OPTIONS', 'POST', 'PUT', 'DELETE', 'PATCH'])
+@cors_headers
 def cors_test():
     """Test endpoint for CORS"""
     if request.method == 'OPTIONS':
-        # Handle preflight request
-        response = jsonify({'status': 'ok'})
-        response.headers.set('Access-Control-Allow-Origin', 'https://ctrack-locator.vercel.app')
-        response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
-        response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-        response.headers.set('Access-Control-Max-Age', '86400')
-        return response
+        return jsonify({'status': 'ok'})
 
     return jsonify({
         'cors': 'enabled',
-        'message': 'CORS is configured for https://ctrack-locator.vercel.app',
-        'allowed_origin': 'https://ctrack-locator.vercel.app'
+        'message': 'CORS is configured to allow all origins (*)',
+        'allowed_origin': '*',
+        'request_headers': dict(request.headers),
+        'test': 'If you can see this, CORS is working!'
     })
 
 @app.route('/predict', methods=['POST', 'OPTIONS', 'GET', 'PUT', 'DELETE', 'PATCH'])
+@cors_headers
 def predict():
     # Handle preflight OPTIONS request
     if request.method == 'OPTIONS':
-        response = jsonify({'status': 'ok'})
-        response.headers.set('Access-Control-Allow-Origin', 'https://ctrack-locator.vercel.app')
-        response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
-        response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-        response.headers.set('Access-Control-Max-Age', '86400')
-        return response
+        return jsonify({'status': 'ok'})
 
     # For non-POST methods (except OPTIONS), return a helpful message
     if request.method != 'POST':
@@ -130,10 +123,15 @@ def predict():
         return jsonify({'error': 'No image provided'}), 400
 
     try:
+        # Log request information for debugging
+        logger.info(f"Received prediction request with headers: {dict(request.headers)}")
+        logger.info(f"Files in request: {list(request.files.keys())}")
+
         # Load TFLite model if not already loaded
         load_tflite_model_if_needed()
 
         file = request.files['image']
+        logger.info(f"Processing image: {file.filename}, Content-Type: {file.content_type}")
 
         # Read and preprocess the image
         img = Image.open(io.BytesIO(file.read()))
@@ -172,11 +170,24 @@ def predict():
         for idx in top_indices:
             response['probabilities'][class_labels[idx]] = float(predictions[0][idx])
 
-        # Let the global after_request handler add CORS headers
+        logger.info(f"Prediction successful: {response['predicted_class']}")
         return jsonify(response)
     except Exception as e:
         logger.error(f"Error during prediction: {e}")
         return jsonify({'error': str(e)}), 500
+
+@app.route('/favicon.ico')
+@cors_headers
+def favicon():
+    """Handle favicon.ico requests to prevent 404 errors"""
+    return '', 204  # Return no content
+
+# Special route to handle all OPTIONS requests
+@app.route('/<path:path>', methods=['OPTIONS'])
+@cors_headers
+def options_handler(path):
+    """Handle OPTIONS requests for any path"""
+    return jsonify({'status': 'ok'})
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
