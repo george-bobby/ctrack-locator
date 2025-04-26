@@ -10,6 +10,7 @@
 		"pipdeps": "pip install -r app/api/requirements.txt",
 		"build": "next build",
 		"build:static": "node build-static.js",
+		"build:vercel": "node vercel-build.js",
 		"lint": "next lint"
 	},
 	"dependencies": {
