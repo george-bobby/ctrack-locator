@@ -9,6 +9,7 @@
 		"dev:flask": "cd app/api && python3 server.py",
 		"pipdeps": "pip install -r app/api/requirements.txt",
 		"build": "next build",
+		"build:static": "node build-static.js",
 		"lint": "next lint"
 	},
 	"dependencies": {

@@ -3,7 +3,11 @@
   "buildCommand": "npm run build",
   "outputDirectory": "out",
   "installCommand": "npm install",
-  "framework": "nextjs",
+  "framework": null,
+  "routes": [
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/index.html" }
+  ],
   "env": {
     "NEXT_PUBLIC_BACKEND_URL": "https://ctrack-locator.onrender.com/"
   }
