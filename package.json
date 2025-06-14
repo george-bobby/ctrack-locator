@@ -6,7 +6,7 @@
 		"start": "next start",
 		"dev": "concurrently \"npm run dev:next\" \"npm run dev:flask\"",
 		"dev:next": "next dev",
-		"dev:flask": "cd app/api && python3 server.py",
+		"dev:flask": "python3 app/api/server.py",
 		"pipdeps": "pip install -r app/api/requirements.txt",
 		"build": "next build",
 		"lint": "next lint"
