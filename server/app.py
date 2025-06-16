@@ -10,7 +10,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Load the model
-model = tf.keras.models.load_model("app/api/model.h5", compile=False)
+model = tf.keras.models.load_model("model.h5", compile=False)
 model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
 
 
