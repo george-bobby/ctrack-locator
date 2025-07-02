@@ -27,7 +27,9 @@ export default function CameraDiagnostics() {
     const results: DiagnosticResult[] = [];
 
     // Check 1: Browser Support
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    if (typeof navigator !== 'undefined' &&
+        navigator.mediaDevices &&
+        typeof navigator.mediaDevices.getUserMedia === 'function') {
       results.push({
         name: 'Browser Support',
         status: 'pass',
@@ -60,7 +62,7 @@ export default function CameraDiagnostics() {
     }
 
     // Check 3: Permissions API
-    if ('permissions' in navigator) {
+    if (typeof navigator !== 'undefined' && 'permissions' in navigator) {
       try {
         const permission = await navigator.permissions.query({ name: 'camera' as PermissionName });
         results.push({
