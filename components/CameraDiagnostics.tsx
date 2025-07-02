@@ -87,20 +87,28 @@ export default function CameraDiagnostics() {
 
     // Check 4: Available Devices
     try {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const videoDevices = devices.filter(device => device.kind === 'videoinput');
-      
-      if (videoDevices.length > 0) {
-        results.push({
-          name: 'Camera Devices',
-          status: 'pass',
-          message: `Found ${videoDevices.length} camera device(s)`
-        });
+      if (navigator.mediaDevices && typeof navigator.mediaDevices.enumerateDevices === 'function') {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+
+        if (videoDevices.length > 0) {
+          results.push({
+            name: 'Camera Devices',
+            status: 'pass',
+            message: `Found ${videoDevices.length} camera device(s)`
+          });
+        } else {
+          results.push({
+            name: 'Camera Devices',
+            status: 'fail',
+            message: 'No camera devices found'
+          });
+        }
       } else {
         results.push({
           name: 'Camera Devices',
           status: 'fail',
-          message: 'No camera devices found'
+          message: 'Device enumeration not supported'
         });
       }
     } catch (error) {
@@ -113,14 +121,22 @@ export default function CameraDiagnostics() {
 
     // Check 5: Test Camera Access
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-      stream.getTracks().forEach(track => track.stop()); // Clean up
-      
-      results.push({
-        name: 'Camera Access Test',
-        status: 'pass',
-        message: 'Successfully accessed camera'
-      });
+      if (navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function') {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        stream.getTracks().forEach(track => track.stop()); // Clean up
+
+        results.push({
+          name: 'Camera Access Test',
+          status: 'pass',
+          message: 'Successfully accessed camera'
+        });
+      } else {
+        results.push({
+          name: 'Camera Access Test',
+          status: 'fail',
+          message: 'getUserMedia not available'
+        });
+      }
     } catch (error: any) {
       results.push({
         name: 'Camera Access Test',
