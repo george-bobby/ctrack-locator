@@ -2,10 +2,19 @@
 
 import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, X, Image as ImageIcon, Camera } from 'lucide-react';
+import { Upload, X, Image as ImageIcon, Camera, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import CameraCapture from '@/components/CameraCapture';
+import CameraDiagnostics from '@/components/CameraDiagnostics';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 
 interface ImageUploaderProps {
   onImageUpload: (imageDataUrl: string, detectedLocation: string) => void;
@@ -14,6 +23,7 @@ interface ImageUploaderProps {
 export default function ImageUploader({ onImageUpload }: ImageUploaderProps) {
   const [preview, setPreview] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
   const { toast } = useToast();
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -135,6 +145,49 @@ export default function ImageUploader({ onImageUpload }: ImageUploaderProps) {
     setPreview(null);
   };
 
+  const handleCameraCapture = useCallback((imageDataUrl: string) => {
+    setPreview(imageDataUrl);
+    setIsCameraOpen(false);
+  }, []);
+
+  const openCamera = useCallback(() => {
+    // Enhanced camera support detection
+    const isHttps = window.location.protocol === 'https:';
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+    // Check if MediaDevices API is available
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      toast({
+        title: 'Camera Not Supported',
+        description: 'Your browser does not support camera access. Please try a modern browser like Chrome, Firefox, or Safari.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Check HTTPS requirement (except for localhost)
+    if (!isHttps && !isLocalhost) {
+      toast({
+        title: 'HTTPS Required',
+        description: 'Camera access requires HTTPS. Please access the site using https:// or use file upload instead.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Additional check for secure context
+    if (!window.isSecureContext && !isLocalhost) {
+      toast({
+        title: 'Secure Context Required',
+        description: 'Camera access requires a secure context (HTTPS). Please use file upload instead.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsCameraOpen(true);
+  }, [toast]);
+
   return (
     <div className="space-y-4">
       <div
@@ -186,17 +239,25 @@ export default function ImageUploader({ onImageUpload }: ImageUploaderProps) {
         <Button
           variant="outline"
           className="flex-1"
-          onClick={() => {
-            toast({
-              title: 'Camera Feature',
-              description:
-                'Camera functionality will be available in the mobile app version.',
-            });
-          }}
+          onClick={openCamera}
         >
           <Camera className="mr-2 h-4 w-4" />
           Use Camera
         </Button>
+
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="icon" title="Camera Diagnostics">
+              <Settings className="h-4 w-4" />
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Camera Diagnostics</DialogTitle>
+            </DialogHeader>
+            <CameraDiagnostics />
+          </DialogContent>
+        </Dialog>
 
         {preview && (
           <Button className="flex-1" onClick={handleSubmit} disabled={isLoading}>
@@ -205,6 +266,13 @@ export default function ImageUploader({ onImageUpload }: ImageUploaderProps) {
           </Button>
         )}
       </div>
+
+      {/* Camera Capture Modal */}
+      <CameraCapture
+        isOpen={isCameraOpen}
+        onClose={() => setIsCameraOpen(false)}
+        onCapture={handleCameraCapture}
+      />
     </div>
   );
 }
