@@ -1,7 +1,7 @@
-Flask
-Flask-Cors
-tensorflow
-numpy
-pillow
-gunicorn
-h5py
+Flask==2.3.3
+Flask-Cors==4.0.0
+tensorflow-cpu==2.12.0
+numpy==1.24.3
+pillow==10.0.1
+gunicorn==21.2.0
+h5py==3.9.0
