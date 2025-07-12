@@ -18,7 +18,7 @@ CORS(app)
 # Configuration
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
-MODEL_PATH = "server/models/quantized.tflite"
+MODEL_PATH = "models/quantized.tflite"
 
 # Define class labels
 CLASS_LABELS = [
