@@ -29,15 +29,36 @@ CLASS_LABELS = [
 ]
 
 # Load TFLite model
+interpreter = None
+input_details = None
+output_details = None
+
 try:
+    # Try loading the quantized model first
     interpreter = tf.lite.Interpreter(model_path=MODEL_PATH)
     interpreter.allocate_tensors()
     input_details = interpreter.get_input_details()
     output_details = interpreter.get_output_details()
-    logger.info("Model loaded successfully")
+    logger.info("Quantized TFLite model loaded successfully")
 except Exception as e:
-    logger.error(f"Failed to load model: {str(e)}")
-    raise
+    logger.error(f"Failed to load quantized model: {str(e)}")
+    # Try loading the regular h5 model as fallback
+    try:
+        logger.info("Attempting to load h5 model as fallback...")
+        h5_model = tf.keras.models.load_model("models/tinycnn.h5")
+        logger.info("H5 model loaded successfully as fallback")
+        # Convert h5 to tflite on the fly
+        converter = tf.lite.TFLiteConverter.from_keras_model(h5_model)
+        tflite_model = converter.convert()
+        interpreter = tf.lite.Interpreter(model_content=tflite_model)
+        interpreter.allocate_tensors()
+        input_details = interpreter.get_input_details()
+        output_details = interpreter.get_output_details()
+        logger.info("Successfully converted h5 to TFLite")
+    except Exception as e2:
+        logger.error(f"Failed to load fallback model: {str(e2)}")
+        raise Exception(
+            f"Could not load any model. TFLite error: {str(e)}, H5 error: {str(e2)}")
 
 
 def allowed_file(filename):
@@ -109,8 +130,9 @@ def predict():
 def health_check():
     return jsonify({
         'status': 'healthy',
-        'model_loaded': True,
-        'classes_loaded': len(CLASS_LABELS)
+        'model_loaded': interpreter is not None,
+        'classes_loaded': len(CLASS_LABELS),
+        'tensorflow_version': tf.__version__
     })
 
 
