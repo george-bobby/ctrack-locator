@@ -116,7 +116,7 @@ export default function ImageUploader({ onImageUpload }: ImageUploaderProps) {
       const data = await res.json();
 
       const predictedClass = data.predicted_class;
-      const probabilities = data.probabilities;
+      const probabilities = data.all_probabilities;
       const confidence = probabilities[predictedClass];
 
       onImageUpload(preview, predictedClass);
