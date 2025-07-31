@@ -170,7 +170,12 @@ export default function LocationDetection() {
 
         <Card className="w-full">
           <CardHeader>
-            <CardTitle>Campus Navigation</CardTitle>
+            <div className="flex justify-between items-center">
+              <CardTitle>Campus Navigation</CardTitle>
+              <Button variant="outline" onClick={resetProcess}>
+                Start Over
+              </Button>
+            </div>
             <CardDescription>
               {locationState === 'detection' && "Choose your preferred method to detect your current location"}
               {locationState === 'destination' && "Select where you want to go"}
@@ -231,7 +236,7 @@ export default function LocationDetection() {
                       <div>
                         <h3 className="text-lg font-medium">Live Detection</h3>
                         <p className="text-sm text-muted-foreground">
-                          Real-time location detection with automatic capture every 5 seconds
+                          Real-time location detection with automatic capture every 3 seconds
                         </p>
                       </div>
                       <Button
@@ -297,11 +302,7 @@ export default function LocationDetection() {
             )}
           </CardContent>
 
-          <CardFooter className="flex justify-between">
-            <Button variant="outline" onClick={resetProcess}>
-              Start Over
-            </Button>
-
+          <CardFooter className="flex justify-end">
             {locationState === 'destination' && (
               <Button onClick={handleProceedToNavigation}>
                 Get Directions

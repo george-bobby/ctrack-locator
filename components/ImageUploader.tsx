@@ -2,19 +2,11 @@
 
 import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, X, Image as ImageIcon, Camera, Settings } from 'lucide-react';
+import { Upload, X, Image as ImageIcon, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import CameraCapture from '@/components/CameraCapture';
-import CameraDiagnostics from '@/components/CameraDiagnostics';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
 
 interface ImageUploaderProps {
   onImageUpload: (imageDataUrl: string, detectedLocation: string) => void;
@@ -235,7 +227,7 @@ export default function ImageUploader({ onImageUpload }: ImageUploaderProps) {
         )}
       </div>
 
-      <div className="flex gap-2">
+      {/* <div className="flex gap-2">
         <Button
           variant="outline"
           className="flex-1"
@@ -245,34 +237,20 @@ export default function ImageUploader({ onImageUpload }: ImageUploaderProps) {
           Use Camera
         </Button>
 
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button variant="outline" size="icon" title="Camera Diagnostics">
-              <Settings className="h-4 w-4" />
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Camera Diagnostics</DialogTitle>
-            </DialogHeader>
-            <CameraDiagnostics />
-          </DialogContent>
-        </Dialog>
-
         {preview && (
           <Button className="flex-1" onClick={handleSubmit} disabled={isLoading}>
             {isLoading ? 'Detecting Location...' : 'Detect Location'}
             {!isLoading && <Upload className="ml-2 h-4 w-4" />}
           </Button>
         )}
-      </div>
+      </div> */}
 
       {/* Camera Capture Modal */}
-      <CameraCapture
+      {/* <CameraCapture
         isOpen={isCameraOpen}
         onClose={() => setIsCameraOpen(false)}
         onCapture={handleCameraCapture}
-      />
+      /> */}
     </div>
   );
 }

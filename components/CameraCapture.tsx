@@ -1,15 +1,17 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Camera, X, RotateCcw, Zap, ZapOff } from 'lucide-react';
+import { Camera, X, RotateCcw, Zap, ZapOff, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import CameraDiagnostics from '@/components/CameraDiagnostics';
 
 interface CameraCaptureProps {
   isOpen: boolean;
@@ -21,14 +23,14 @@ export default function CameraCapture({ isOpen, onClose, onCapture }: CameraCapt
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  
+
   const [isLoading, setIsLoading] = useState(false);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const [flashEnabled, setFlashEnabled] = useState(false);
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [currentDeviceId, setCurrentDeviceId] = useState<string>('');
-  
+
   const { toast } = useToast();
 
   // Get available camera devices
@@ -37,14 +39,14 @@ export default function CameraCapture({ isOpen, onClose, onCapture }: CameraCapt
       const devices = await navigator.mediaDevices.enumerateDevices();
       const videoDevices = devices.filter(device => device.kind === 'videoinput');
       setDevices(videoDevices);
-      
+
       // Set default device (prefer back camera on mobile)
-      const backCamera = videoDevices.find(device => 
-        device.label.toLowerCase().includes('back') || 
+      const backCamera = videoDevices.find(device =>
+        device.label.toLowerCase().includes('back') ||
         device.label.toLowerCase().includes('rear') ||
         device.label.toLowerCase().includes('environment')
       );
-      
+
       if (backCamera) {
         setCurrentDeviceId(backCamera.deviceId);
       } else if (videoDevices.length > 0) {
@@ -161,7 +163,7 @@ export default function CameraCapture({ isOpen, onClose, onCapture }: CameraCapt
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const context = canvas.getContext('2d');
-    
+
     if (!context) return;
 
     // Set canvas dimensions to match video
@@ -173,13 +175,13 @@ export default function CameraCapture({ isOpen, onClose, onCapture }: CameraCapt
 
     // Convert to data URL
     const imageDataUrl = canvas.toDataURL('image/jpeg', 0.8);
-    
+
     // Call the onCapture callback
     onCapture(imageDataUrl);
-    
+
     // Close the camera
     handleClose();
-    
+
     toast({
       title: 'Photo Captured!',
       description: 'Your photo has been captured successfully.',
@@ -213,7 +215,7 @@ export default function CameraCapture({ isOpen, onClose, onCapture }: CameraCapt
     } else {
       stopCamera();
     }
-    
+
     return () => {
       stopCamera();
     };
@@ -235,7 +237,7 @@ export default function CameraCapture({ isOpen, onClose, onCapture }: CameraCapt
             Take Photo
           </DialogTitle>
         </DialogHeader>
-        
+
         <div className="relative">
           {/* Video Preview */}
           <div className="relative aspect-[4/3] bg-black min-h-[300px] sm:min-h-[400px]">
@@ -246,7 +248,7 @@ export default function CameraCapture({ isOpen, onClose, onCapture }: CameraCapt
               muted
               autoPlay
             />
-            
+
             {/* Loading overlay */}
             {isLoading && (
               <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
@@ -256,7 +258,7 @@ export default function CameraCapture({ isOpen, onClose, onCapture }: CameraCapt
                 </div>
               </div>
             )}
-            
+
             {/* Permission denied overlay */}
             {hasPermission === false && (
               <div className="absolute inset-0 bg-black/80 flex items-center justify-center">
@@ -273,7 +275,7 @@ export default function CameraCapture({ isOpen, onClose, onCapture }: CameraCapt
               </div>
             )}
           </div>
-          
+
           {/* Camera Controls */}
           <div className="absolute bottom-4 left-0 right-0 flex items-center justify-center gap-4 px-4">
             {/* Switch Camera */}
@@ -287,6 +289,26 @@ export default function CameraCapture({ isOpen, onClose, onCapture }: CameraCapt
                 <RotateCcw className="h-4 w-4" />
               </Button>
             )}
+
+            {/* Camera Diagnostics */}
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="bg-black/50 border-white/20 text-white hover:bg-black/70 touch-manipulation"
+                  title="Camera Diagnostics"
+                >
+                  <Settings className="h-4 w-4" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Camera Diagnostics</DialogTitle>
+                </DialogHeader>
+                <CameraDiagnostics />
+              </DialogContent>
+            </Dialog>
 
             {/* Capture Button */}
             <Button
@@ -309,7 +331,7 @@ export default function CameraCapture({ isOpen, onClose, onCapture }: CameraCapt
             </Button>
           </div>
         </div>
-        
+
         {/* Hidden canvas for photo capture */}
         <canvas ref={canvasRef} className="hidden" />
       </DialogContent>

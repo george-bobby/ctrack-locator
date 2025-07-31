@@ -1,17 +1,19 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Camera, X, RotateCcw, Zap, ZapOff, MapPin, Clock } from 'lucide-react';
+import { Camera, X, RotateCcw, Settings, MapPin, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import CameraDiagnostics from '@/components/CameraDiagnostics';
 
 interface PredictionResult {
   predicted_class: string;
@@ -26,16 +28,16 @@ interface RealTimeCameraCaptureProps {
   onLocationDetected: (location: string, confidence: number) => void;
 }
 
-export default function RealTimeCameraCapture({ 
-  isOpen, 
-  onClose, 
-  onLocationDetected 
+export default function RealTimeCameraCapture({
+  isOpen,
+  onClose,
+  onLocationDetected
 }: RealTimeCameraCaptureProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   const [isLoading, setIsLoading] = useState(false);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
@@ -43,9 +45,9 @@ export default function RealTimeCameraCapture({
   const [currentDeviceId, setCurrentDeviceId] = useState<string>('');
   const [isCapturing, setIsCapturing] = useState(false);
   const [currentPrediction, setCurrentPrediction] = useState<PredictionResult | null>(null);
-  const [nextCaptureIn, setNextCaptureIn] = useState<number>(5);
+  const [nextCaptureIn, setNextCaptureIn] = useState<number>(3);
   const [isProcessing, setIsProcessing] = useState(false);
-  
+
   const { toast } = useToast();
 
   // Get available camera devices
@@ -54,11 +56,11 @@ export default function RealTimeCameraCapture({
       const devices = await navigator.mediaDevices.enumerateDevices();
       const videoDevices = devices.filter(device => device.kind === 'videoinput');
       setDevices(videoDevices);
-      
+
       if (videoDevices.length > 0 && !currentDeviceId) {
         // Prefer back camera if available
-        const backCamera = videoDevices.find(device => 
-          device.label.toLowerCase().includes('back') || 
+        const backCamera = videoDevices.find(device =>
+          device.label.toLowerCase().includes('back') ||
           device.label.toLowerCase().includes('rear') ||
           device.label.toLowerCase().includes('environment')
         );
@@ -75,15 +77,15 @@ export default function RealTimeCameraCapture({
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
-    
+
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
-    
+
     setHasPermission(null);
     setIsCapturing(false);
-    setNextCaptureIn(5);
+    setNextCaptureIn(3);
   }, []);
 
   // Start camera stream
@@ -117,10 +119,10 @@ export default function RealTimeCameraCapture({
 
       setHasPermission(true);
       setIsLoading(false);
-      
+
       // Start the automatic capture process
       startAutomaticCapture();
-      
+
     } catch (error: any) {
       console.error('Camera access error:', error);
       setIsLoading(false);
@@ -178,7 +180,7 @@ export default function RealTimeCameraCapture({
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const context = canvas.getContext('2d');
-    
+
     if (!context) return null;
 
     // Set canvas dimensions to match video
@@ -196,7 +198,7 @@ export default function RealTimeCameraCapture({
   const predictLocation = useCallback(async (imageDataUrl: string): Promise<PredictionResult | null> => {
     try {
       setIsProcessing(true);
-      
+
       // Convert base64 to blob
       const response = await fetch(imageDataUrl);
       const blob = await response.blob();
@@ -219,7 +221,7 @@ export default function RealTimeCameraCapture({
       }
 
       const data = await res.json();
-      
+
       return {
         predicted_class: data.predicted_class,
         confidence: data.confidence,
@@ -239,10 +241,10 @@ export default function RealTimeCameraCapture({
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
     }
-    
+
     setIsCapturing(true);
-    setNextCaptureIn(5);
-    
+    setNextCaptureIn(3);
+
     // Countdown timer
     const countdownInterval = setInterval(() => {
       setNextCaptureIn(prev => {
@@ -257,12 +259,12 @@ export default function RealTimeCameraCapture({
               }
             }
           })();
-          return 5; // Reset to 5 seconds
+          return 3; // Reset to 3 seconds
         }
         return prev - 1;
       });
     }, 1000);
-    
+
     intervalRef.current = countdownInterval;
   }, [captureFrame, predictLocation]);
 
@@ -301,7 +303,7 @@ export default function RealTimeCameraCapture({
     } else {
       stopCamera();
     }
-    
+
     return () => {
       stopCamera();
     };
@@ -359,7 +361,7 @@ export default function RealTimeCameraCapture({
 
             {/* Hidden canvas for frame capture */}
             <canvas ref={canvasRef} className="hidden" />
-            
+
             {/* Live Results Overlay */}
             {currentPrediction && (
               <div className="absolute top-4 left-4 right-4 bg-black/80 backdrop-blur-sm rounded-lg p-3 text-white">
@@ -389,8 +391,8 @@ export default function RealTimeCameraCapture({
                   </div>
                   <span className="font-bold">{nextCaptureIn}s</span>
                 </div>
-                <Progress 
-                  value={((5 - nextCaptureIn) / 5) * 100} 
+                <Progress
+                  value={((3 - nextCaptureIn) / 3) * 100}
                   className="h-2"
                 />
                 {isProcessing && (
@@ -401,7 +403,7 @@ export default function RealTimeCameraCapture({
                 )}
               </div>
             )}
-          
+
             {/* Camera Controls */}
             <div className="absolute bottom-4 right-4 flex flex-col gap-2">
               {/* Switch Camera */}
@@ -415,6 +417,26 @@ export default function RealTimeCameraCapture({
                   <RotateCcw className="h-4 w-4" />
                 </Button>
               )}
+
+              {/* Camera Diagnostics */}
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="bg-black/50 border-white/20 text-white hover:bg-black/70"
+                    title="Camera Diagnostics"
+                  >
+                    <Settings className="h-4 w-4" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>Camera Diagnostics</DialogTitle>
+                  </DialogHeader>
+                  <CameraDiagnostics />
+                </DialogContent>
+              </Dialog>
 
               {/* Close Button */}
               <Button

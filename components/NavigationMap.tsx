@@ -6,8 +6,25 @@ import L from 'leaflet';
 import 'leaflet-routing-machine';
 import { campusLocations } from '@/lib/campus-data';
 
+interface NavigationMapProps {
+	startLocation: string;
+	endLocation: string;
+}
+
+interface RoutingMachineProps {
+	startLocation: string;
+	endLocation: string;
+}
+
+interface CampusLocation {
+	name: string;
+	lat: number;
+	lng: number;
+}
+
 // Fix for Leaflet marker icons in Next.js
 const fixLeafletIcon = () => {
+	// @ts-ignore - Leaflet icon fix requires deleting prototype property
 	delete L.Icon.Default.prototype._getIconUrl;
 	L.Icon.Default.mergeOptions({
 		iconRetinaUrl:
@@ -23,16 +40,16 @@ const fixLeafletIcon = () => {
 // }
 
 // Component to handle routing
-function RoutingMachine({ startLocation, endLocation }) {
+function RoutingMachine({ startLocation, endLocation }: RoutingMachineProps) {
 	const map = useMap();
 
 	useEffect(() => {
 		if (!map) return;
 
-		const startPoint = campusLocations.find(
+		const startPoint: CampusLocation | undefined = campusLocations.find(
 			(loc) => loc.name === startLocation
 		);
-		const endPoint = campusLocations.find((loc) => loc.name === endLocation);
+		const endPoint: CampusLocation | undefined = campusLocations.find((loc) => loc.name === endLocation);
 
 		if (!startPoint || !endPoint) return;
 
@@ -46,7 +63,10 @@ function RoutingMachine({ startLocation, endLocation }) {
 			fitSelectedRoutes: true,
 			lineOptions: {
 				styles: [{ color: '#6366f1', weight: 6 }],
+				extendToWaypoints: true,
+				missingRouteTolerance: 0
 			},
+			// @ts-ignore - createMarker is a valid option for Leaflet Routing Machine
 			createMarker: function () {
 				return null;
 			}, // Don't create default markers
@@ -60,7 +80,7 @@ function RoutingMachine({ startLocation, endLocation }) {
 	return null;
 }
 
-export default function NavigationMap({ startLocation, endLocation }) {
+export default function NavigationMap({ startLocation, endLocation }: NavigationMapProps) {
 	const [isMounted, setIsMounted] = useState(false);
 
 	useEffect(() => {
@@ -77,8 +97,8 @@ export default function NavigationMap({ startLocation, endLocation }) {
 	}
 
 	// Find the center point between start and end locations
-	const startPoint = campusLocations.find((loc) => loc.name === startLocation);
-	const endPoint = campusLocations.find((loc) => loc.name === endLocation);
+	const startPoint: CampusLocation | undefined = campusLocations.find((loc) => loc.name === startLocation);
+	const endPoint: CampusLocation | undefined = campusLocations.find((loc) => loc.name === endLocation);
 
 	if (!startPoint || !endPoint) {
 		return (
