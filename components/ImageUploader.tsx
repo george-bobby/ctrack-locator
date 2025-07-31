@@ -227,14 +227,14 @@ export default function ImageUploader({ onImageUpload }: ImageUploaderProps) {
         )}
       </div>
 
-      {/* <div className="flex gap-2">
+      <div className="flex gap-2">
         <Button
           variant="outline"
           className="flex-1"
           onClick={openCamera}
         >
           <Camera className="mr-2 h-4 w-4" />
-          Use Camera
+          Take Photo
         </Button>
 
         {preview && (
@@ -243,14 +243,14 @@ export default function ImageUploader({ onImageUpload }: ImageUploaderProps) {
             {!isLoading && <Upload className="ml-2 h-4 w-4" />}
           </Button>
         )}
-      </div> */}
+      </div>
 
       {/* Camera Capture Modal */}
-      {/* <CameraCapture
+      <CameraCapture
         isOpen={isCameraOpen}
         onClose={() => setIsCameraOpen(false)}
         onCapture={handleCameraCapture}
-      /> */}
+      />
     </div>
   );
 }

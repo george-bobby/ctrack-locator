@@ -13,18 +13,18 @@ import {
 } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { campusLocations } from '@/lib/campus-data';
-import { Camera, Upload, Video, ArrowLeft } from 'lucide-react';
+import { Upload, Video, ArrowLeft } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 // 🔁 Dynamically import components to avoid SSR issues
-const RealTimeCameraCapture = dynamic(() => import('@/components/RealTimeCameraCapture'), { ssr: false });
+const RealTimeCameraInline = dynamic(() => import('@/components/RealTimeCameraInline'), { ssr: false });
 const CameraCapture = dynamic(() => import('@/components/CameraCapture'), { ssr: false });
 const ImageUploader = dynamic(() => import('@/components/ImageUploader'), { ssr: false });
 const LocationSelector = dynamic(() => import('@/components/LocationSelector'), { ssr: false });
 const NavigationMap = dynamic(() => import('@/components/NavigationMap'), { ssr: false });
 
 type LocationState = 'detection' | 'destination' | 'navigation';
-type DetectionMethod = 'camera' | 'upload' | 'live';
+type DetectionMethod = 'upload' | 'live';
 
 export default function LocationDetection() {
   const [locationState, setLocationState] = useState<LocationState>('detection');
@@ -34,9 +34,8 @@ export default function LocationDetection() {
   const [detectionConfidence, setDetectionConfidence] = useState<number>(0);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
 
-  // Modal states for different capture methods
+  // Modal state for camera capture
   const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const [isLiveCameraOpen, setIsLiveCameraOpen] = useState(false);
 
   const { toast } = useToast();
 
@@ -117,7 +116,6 @@ export default function LocationDetection() {
     setCurrentLocation(location);
     setDetectionConfidence(confidence);
     setLocationState('destination');
-    setIsLiveCameraOpen(false);
 
     toast({
       title: 'Location Detected!',
@@ -125,13 +123,9 @@ export default function LocationDetection() {
     });
   };
 
-  // Open different camera types
+  // Open camera for photo capture
   const openCamera = () => {
     setIsCameraOpen(true);
-  };
-
-  const openLiveCamera = () => {
-    setIsLiveCameraOpen(true);
   };
 
   const handleDestinationSelect = (location: string) => {
@@ -157,7 +151,6 @@ export default function LocationDetection() {
     setDetectionConfidence(0);
     setUploadedImage(null);
     setIsCameraOpen(false);
-    setIsLiveCameraOpen(false);
     setDetectionMethod('upload');
   };
 
@@ -187,14 +180,10 @@ export default function LocationDetection() {
             {locationState === 'detection' && (
               <div className="space-y-6">
                 <Tabs value={detectionMethod} onValueChange={(value) => setDetectionMethod(value as DetectionMethod)}>
-                  <TabsList className="grid w-full grid-cols-3">
+                  <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="upload" className="flex items-center gap-2">
                       <Upload className="h-4 w-4" />
                       Upload Image
-                    </TabsTrigger>
-                    <TabsTrigger value="camera" className="flex items-center gap-2">
-                      <Camera className="h-4 w-4" />
-                      Take Photo
                     </TabsTrigger>
                     <TabsTrigger value="live" className="flex items-center gap-2">
                       <Video className="h-4 w-4" />
@@ -206,48 +195,22 @@ export default function LocationDetection() {
                     <div className="text-center space-y-2">
                       <h3 className="text-lg font-medium">Upload an Image</h3>
                       <p className="text-sm text-muted-foreground">
-                        Select or drag an image of your surroundings to detect your location
+                        Select or drag an image of your surroundings, or take a photo to detect your location
                       </p>
                     </div>
                     <ImageUploader onImageUpload={handleImageUpload} />
                   </TabsContent>
 
-                  <TabsContent value="camera" className="space-y-4">
-                    <div className="text-center space-y-4">
-                      <div>
-                        <h3 className="text-lg font-medium">Take a Photo</h3>
-                        <p className="text-sm text-muted-foreground">
-                          Use your device camera to capture a photo for location detection
-                        </p>
-                      </div>
-                      <Button
-                        onClick={openCamera}
-                        size="lg"
-                        className="w-full max-w-md"
-                      >
-                        <Camera className="h-5 w-5 mr-2" />
-                        Open Camera
-                      </Button>
-                    </div>
-                  </TabsContent>
-
                   <TabsContent value="live" className="space-y-4">
-                    <div className="text-center space-y-4">
-                      <div>
-                        <h3 className="text-lg font-medium">Live Detection</h3>
-                        <p className="text-sm text-muted-foreground">
-                          Real-time location detection with automatic capture every 3 seconds
-                        </p>
-                      </div>
-                      <Button
-                        onClick={openLiveCamera}
-                        size="lg"
-                        className="w-full max-w-md"
-                      >
-                        <Video className="h-5 w-5 mr-2" />
-                        Start Live Detection
-                      </Button>
+                    <div className="text-center space-y-2 mb-4">
+                      <h3 className="text-lg font-medium">Live Detection</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Real-time location detection using your camera feed
+                      </p>
                     </div>
+                    <RealTimeCameraInline
+                      onLocationDetected={handleLiveLocationDetected}
+                    />
                   </TabsContent>
                 </Tabs>
               </div>
@@ -316,13 +279,6 @@ export default function LocationDetection() {
           isOpen={isCameraOpen}
           onClose={() => setIsCameraOpen(false)}
           onCapture={handleCameraCapture}
-        />
-
-        {/* Real-time Camera Modal */}
-        <RealTimeCameraCapture
-          isOpen={isLiveCameraOpen}
-          onClose={() => setIsLiveCameraOpen(false)}
-          onLocationDetected={handleLiveLocationDetected}
         />
       </div>
     </section>
