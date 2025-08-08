@@ -10,7 +10,7 @@ export default function AboutSection() {
         <h2 className="text-3xl font-bold tracking-tight text-center mb-12 px-16">
           How C-TRACK Works
         </h2>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card>
             <CardHeader className="pb-2">
@@ -28,7 +28,7 @@ export default function AboutSection() {
               </p>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader className="pb-2">
               <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
@@ -45,7 +45,7 @@ export default function AboutSection() {
               </p>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader className="pb-2">
               <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
@@ -62,7 +62,7 @@ export default function AboutSection() {
               </p>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader className="pb-2">
               <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">

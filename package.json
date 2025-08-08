@@ -6,7 +6,7 @@
 		"start": "next start",
 		"dev": "concurrently \"npm run dev:next\" \"npm run dev:flask\"",
 		"dev:next": "npx next dev --experimental-https -H 0.0.0.0 -p 3000",
-		"dev:flask": "python3 server/index.py",
+		"dev:flask": "python server/index.py",
 		"pipdeps": "pip install -r server/requirements.txt",
 		"build": "next build",
 		"lint": "next lint"
