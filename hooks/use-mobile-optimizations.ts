@@ -267,7 +267,9 @@ export const useMobileCameraOptimizations = () => {
 				connectionType === '2g'
 			) {
 				baseConstraints.video = {
-					...baseConstraints.video,
+					...(typeof baseConstraints.video === 'object'
+						? baseConstraints.video
+						: {}),
 					width: { ideal: 640 },
 					height: { ideal: 480 },
 				};
@@ -279,7 +281,9 @@ export const useMobileCameraOptimizations = () => {
 				(connectionType === '4g' || connectionType === '3g')
 			) {
 				baseConstraints.video = {
-					...baseConstraints.video,
+					...(typeof baseConstraints.video === 'object'
+						? baseConstraints.video
+						: {}),
 					width: { ideal: 1920 },
 					height: { ideal: 1080 },
 				};
