@@ -56,33 +56,34 @@ function RoutingMachine({ sourceLocation, destinationLocation }: {
       ],
       routeWhileDragging: false,
       addWaypoints: false,
-      createMarker: function(i: number, waypoint: L.Routing.Waypoint) {
+      createMarker: function (i: number, waypoint: L.Routing.Waypoint) {
         const isSource = i === 0;
         const icon = L.divIcon({
-          html: `<div class="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${
-            isSource ? 'bg-green-600' : 'bg-red-600'
-          }">${isSource ? 'S' : 'D'}</div>`,
+          html: `<div class="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${isSource ? 'bg-green-600' : 'bg-red-600'
+            }">${isSource ? 'S' : 'D'}</div>`,
           className: 'custom-marker',
           iconSize: [32, 32],
           iconAnchor: [16, 16]
         });
-        
+
         return L.marker(waypoint.latLng, { icon });
       },
       lineOptions: {
         styles: [
           { color: '#3B82F6', weight: 6, opacity: 0.8 }
-        ]
+        ],
+        extendToWaypoints: true,
+        missingRouteTolerance: 100
       },
       show: false, // Hide the default instruction panel
-    }).on('routesfound', function(e) {
+    }).on('routesfound', function (e) {
       const routes = e.routes;
       const summary = routes[0].summary;
-      
+
       // Format distance and time
       const distance = (summary.totalDistance / 1000).toFixed(1) + ' km';
       const time = Math.round(summary.totalTime / 60) + ' min';
-      
+
       setTotalDistance(distance);
       setTotalTime(time);
 
@@ -252,14 +253,14 @@ export default function MobileNavigationMap({
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
-              
-              <RoutingMachine 
-                sourceLocation={sourceLocation} 
-                destinationLocation={destinationLocation} 
+
+              <RoutingMachine
+                sourceLocation={sourceLocation}
+                destinationLocation={destinationLocation}
               />
 
               {/* Source marker */}
-              <Marker 
+              <Marker
                 position={[source.lat, source.lng]}
                 icon={L.divIcon({
                   html: '<div class="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center text-white font-bold">S</div>',
@@ -277,7 +278,7 @@ export default function MobileNavigationMap({
               </Marker>
 
               {/* Destination marker */}
-              <Marker 
+              <Marker
                 position={[destination.lat, destination.lng]}
                 icon={L.divIcon({
                   html: '<div class="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center text-white font-bold">D</div>',
