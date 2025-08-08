@@ -56,18 +56,6 @@ function RoutingMachine({ sourceLocation, destinationLocation }: {
       ],
       routeWhileDragging: false,
       addWaypoints: false,
-      createMarker: function (i: number, waypoint: L.Routing.Waypoint) {
-        const isSource = i === 0;
-        const icon = L.divIcon({
-          html: `<div class="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${isSource ? 'bg-green-600' : 'bg-red-600'
-            }">${isSource ? 'S' : 'D'}</div>`,
-          className: 'custom-marker',
-          iconSize: [32, 32],
-          iconAnchor: [16, 16]
-        });
-
-        return L.marker(waypoint.latLng, { icon });
-      },
       lineOptions: {
         styles: [
           { color: '#3B82F6', weight: 6, opacity: 0.8 }
@@ -76,7 +64,7 @@ function RoutingMachine({ sourceLocation, destinationLocation }: {
         missingRouteTolerance: 100
       },
       show: false, // Hide the default instruction panel
-    }).on('routesfound', function (e) {
+    } as any).on('routesfound', function (e) {
       const routes = e.routes;
       const summary = routes[0].summary;
 
@@ -101,17 +89,35 @@ function RoutingMachine({ sourceLocation, destinationLocation }: {
     routingControl.addTo(map);
     routingControlRef.current = routingControl;
 
+    // Add custom markers
+    const sourceIcon = L.divIcon({
+      html: `<div class="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold bg-green-600">S</div>`,
+      className: 'custom-marker',
+      iconSize: [32, 32],
+      iconAnchor: [16, 16]
+    });
+
+    const destinationIcon = L.divIcon({
+      html: `<div class="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold bg-red-600">D</div>`,
+      className: 'custom-marker',
+      iconSize: [32, 32],
+      iconAnchor: [16, 16]
+    });
+
+    const sourceMarker = L.marker([source.lat, source.lng], { icon: sourceIcon }).addTo(map);
+    const destinationMarker = L.marker([destination.lat, destination.lng], { icon: destinationIcon }).addTo(map);
+
     // Fit map to show both points
-    const group = new L.FeatureGroup([
-      L.marker([source.lat, source.lng]),
-      L.marker([destination.lat, destination.lng])
-    ]);
+    const group = new L.FeatureGroup([sourceMarker, destinationMarker]);
     map.fitBounds(group.getBounds().pad(0.1));
 
     return () => {
       if (routingControlRef.current) {
         map.removeControl(routingControlRef.current);
       }
+      // Remove custom markers
+      map.removeLayer(sourceMarker);
+      map.removeLayer(destinationMarker);
     };
   }, [map, sourceLocation, destinationLocation]);
 
