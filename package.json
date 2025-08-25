@@ -4,9 +4,10 @@
 	"private": true,
 	"scripts": {
 		"start": "next start",
-		"dev": "concurrently \"npm run dev:next\" \"npm run dev:flask\"",
+		"dev": "concurrently \"npm run dev:next\" \"npm run dev:flask\" \"npm run dev:ngrok\"",
 		"dev:next": "npx next dev --experimental-https -H 0.0.0.0 -p 3000",
 		"dev:flask": "python server/index.py",
+		"dev:ngrok": "ngrok http --url=purely-absolute-stinkbug.ngrok-free.app 5000",
 		"pipdeps": "pip install -r server/requirements.txt",
 		"build": "next build",
 		"lint": "next lint"

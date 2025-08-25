@@ -8,12 +8,12 @@ import Footer from '@/components/Footer';
 export default function Home() {
   return (
     <main className="w-screen min-h-screen bg-gradient-to-b from-background to-secondary/5 overflow-x-hidden">
-      <Header />
-      <Hero />
+      {/* <Header /> */}
+      {/* <Hero /> */}
       <LocationDetection />
-      <AboutSection />
+      {/* <AboutSection /> */}
       <CampusLocationsSection />
-      <Footer />
+      {/* <Footer /> */}
     </main>
   );
 }
