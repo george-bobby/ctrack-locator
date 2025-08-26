@@ -65,28 +65,32 @@ export default function LocationDetection() {
 
   // GPS location monitoring
   useEffect(() => {
-    if (predictionSettings.gpsEnabled) {
-      gpsService.updateOptions({
-        onLocationUpdate: (result) => {
-          setCurrentGPSLocation(result);
-        },
-        onError: (error) => {
-          console.error('GPS error:', error);
-          toast({
-            title: 'GPS Error',
-            description: error.message,
-            variant: 'destructive',
-          });
-        }
-      });
+    // Add a small delay to prevent conflicts with camera initialization
+    const timeoutId = setTimeout(() => {
+      if (predictionSettings.gpsEnabled) {
+        gpsService.updateOptions({
+          onLocationUpdate: (result) => {
+            setCurrentGPSLocation(result);
+          },
+          onError: (error) => {
+            console.error('GPS error:', error);
+            toast({
+              title: 'GPS Error',
+              description: error.message,
+              variant: 'destructive',
+            });
+          }
+        });
 
-      gpsService.startWatching();
-    } else {
-      gpsService.stopWatching();
-      setCurrentGPSLocation(null);
-    }
+        gpsService.startWatching();
+      } else {
+        gpsService.stopWatching();
+        setCurrentGPSLocation(null);
+      }
+    }, 100); // Small delay to prevent race conditions
 
     return () => {
+      clearTimeout(timeoutId);
       gpsService.stopWatching();
     };
   }, [predictionSettings.gpsEnabled, gpsService, toast]);
