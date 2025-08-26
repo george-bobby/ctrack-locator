@@ -114,7 +114,15 @@ export default function RealTimeCameraCapture({
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+
+        // Handle video play promise properly
+        const playPromise = videoRef.current.play();
+        if (playPromise !== undefined) {
+          await playPromise.catch(error => {
+            console.warn('Video play interrupted:', error);
+            // Don't throw error, just log it as this is often due to rapid state changes
+          });
+        }
       }
 
       setHasPermission(true);
@@ -153,7 +161,15 @@ export default function RealTimeCameraCapture({
 
           if (videoRef.current) {
             videoRef.current.srcObject = stream;
-            await videoRef.current.play();
+
+            // Handle video play promise properly
+            const playPromise = videoRef.current.play();
+            if (playPromise !== undefined) {
+              await playPromise.catch(error => {
+                console.warn('Video play interrupted:', error);
+                // Don't throw error, just log it as this is often due to rapid state changes
+              });
+            }
           }
 
           setHasPermission(true);

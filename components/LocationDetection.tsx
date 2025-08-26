@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,8 +13,11 @@ import {
 } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { campusLocations } from '@/lib/campus-data';
-import { Upload, Video, ArrowLeft } from 'lucide-react';
+import { Upload, Video, ArrowLeft, Settings } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { getGPSService, requestGPSPermission, type GPSLocationResult } from '@/lib/gps-service';
+import { combineGPSAndAIPredictions, type HybridPredictionResult, type AIPrediction } from '@/lib/hybrid-prediction';
+import { getBestGPSMatch } from '@/lib/gps-utils';
 
 // 🔁 Dynamically import components to avoid SSR issues
 const RealTimeCameraInline = dynamic(() => import('@/components/RealTimeCameraInline'), { ssr: false });
@@ -22,9 +25,18 @@ const CameraCapture = dynamic(() => import('@/components/CameraCapture'), { ssr:
 const ImageUploader = dynamic(() => import('@/components/ImageUploader'), { ssr: false });
 const LocationSelector = dynamic(() => import('@/components/LocationSelector'), { ssr: false });
 const NavigationMap = dynamic(() => import('@/components/NavigationMap'), { ssr: false });
+const GPSSettings = dynamic(() => import('@/components/GPSSettings'), { ssr: false });
+const PredictionBreakdown = dynamic(() => import('@/components/PredictionBreakdown'), { ssr: false });
 
 type LocationState = 'detection' | 'destination' | 'navigation';
 type DetectionMethod = 'upload' | 'live';
+
+interface PredictionSettings {
+  gpsEnabled: boolean;
+  aiEnabled: boolean;
+  gpsWeight: number;
+  aiWeight: number;
+}
 
 export default function LocationDetection() {
   const [locationState, setLocationState] = useState<LocationState>('detection');
@@ -37,22 +49,92 @@ export default function LocationDetection() {
   // Modal state for camera capture
   const [isCameraOpen, setIsCameraOpen] = useState(false);
 
+  // GPS and prediction settings
+  const [showSettings, setShowSettings] = useState(false);
+  const [predictionSettings, setPredictionSettings] = useState<PredictionSettings>({
+    gpsEnabled: false,
+    aiEnabled: true,
+    gpsWeight: 40,
+    aiWeight: 60
+  });
+  const [currentGPSLocation, setCurrentGPSLocation] = useState<GPSLocationResult | null>(null);
+  const [hybridResult, setHybridResult] = useState<HybridPredictionResult | null>(null);
+
   const { toast } = useToast();
+  const gpsService = getGPSService();
+
+  // GPS location monitoring
+  useEffect(() => {
+    // Add a small delay to prevent conflicts with camera initialization
+    const timeoutId = setTimeout(() => {
+      if (predictionSettings.gpsEnabled) {
+        gpsService.updateOptions({
+          onLocationUpdate: (result) => {
+            setCurrentGPSLocation(result);
+          },
+          onError: (error) => {
+            console.error('GPS error:', error);
+            toast({
+              title: 'GPS Error',
+              description: error.message,
+              variant: 'destructive',
+            });
+          }
+        });
+
+        gpsService.startWatching();
+      } else {
+        gpsService.stopWatching();
+        setCurrentGPSLocation(null);
+      }
+    }, 100); // Small delay to prevent race conditions
+
+    return () => {
+      clearTimeout(timeoutId);
+      gpsService.stopWatching();
+    };
+  }, [predictionSettings.gpsEnabled, gpsService, toast]);
 
   // Handle image upload (from ImageUploader)
-  const handleImageUpload = (imageDataUrl: string, detectedLocation: string) => {
+  const handleImageUpload = async (imageDataUrl: string, detectedLocation: string) => {
     setUploadedImage(imageDataUrl);
-    setCurrentLocation(detectedLocation);
-    setDetectionConfidence(1.0); // ImageUploader doesn't provide confidence, so assume high
-    setLocationState('destination');
 
-    toast({
-      title: 'Location Detected!',
-      description: `Found: ${detectedLocation} via image upload`,
-    });
+    // If hybrid prediction is enabled, combine with GPS
+    if (predictionSettings.gpsEnabled && currentGPSLocation?.bestMatch) {
+      const aiPrediction: AIPrediction = {
+        predicted_class: detectedLocation,
+        confidence: 1.0,
+        probabilities: { [detectedLocation]: 1.0 }
+      };
+
+      const hybrid = combineGPSAndAIPredictions(
+        currentGPSLocation.bestMatch,
+        aiPrediction,
+        { gpsWeight: predictionSettings.gpsWeight, aiWeight: predictionSettings.aiWeight }
+      );
+
+      setHybridResult(hybrid);
+      setCurrentLocation(hybrid.finalLocation);
+      setDetectionConfidence(hybrid.finalConfidence);
+
+      toast({
+        title: 'Location Detected!',
+        description: `Found: ${hybrid.finalLocation} (${Math.round(hybrid.finalConfidence * 100)}% confidence) via hybrid prediction`,
+      });
+    } else {
+      setCurrentLocation(detectedLocation);
+      setDetectionConfidence(1.0);
+
+      toast({
+        title: 'Location Detected!',
+        description: `Found: ${detectedLocation} via image upload`,
+      });
+    }
+
+    setLocationState('destination');
   };
 
-  // Send image to backend for prediction
+  // Send image to backend for prediction with optional GPS data
   const predictImageLocation = async (imageDataUrl: string) => {
     try {
       // Convert base64 to blob
@@ -61,6 +143,14 @@ export default function LocationDetection() {
 
       const formData = new FormData();
       formData.append('image', blob, 'image.jpg');
+
+      // Add GPS data if available and enabled
+      if (predictionSettings.gpsEnabled && currentGPSLocation?.coordinates) {
+        formData.append('gps_lat', currentGPSLocation.coordinates.latitude.toString());
+        formData.append('gps_lng', currentGPSLocation.coordinates.longitude.toString());
+        formData.append('gps_weight', predictionSettings.gpsWeight.toString());
+        formData.append('ai_weight', predictionSettings.aiWeight.toString());
+      }
 
       // Make sure the URL has a trailing slash before 'predict'
       const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:5000';
@@ -77,9 +167,23 @@ export default function LocationDetection() {
       }
 
       const data = await res.json();
+
+      // Handle hybrid prediction response
+      if (data.hybrid_prediction) {
+        setHybridResult(data.hybrid_prediction);
+        return {
+          predicted_class: data.hybrid_prediction.final_location,
+          confidence: data.hybrid_prediction.final_confidence,
+          method: data.method,
+          gpsData: data.gps_data,
+          aiData: data.ai_data
+        };
+      }
+
       return {
         predicted_class: data.predicted_class,
-        confidence: data.confidence || data.all_probabilities?.[data.predicted_class] || 0.5
+        confidence: data.confidence || data.probabilities?.[data.predicted_class] || 0.5,
+        method: data.method || 'ai-only'
       };
     } catch (error) {
       console.error('Prediction error:', error);
@@ -144,6 +248,47 @@ export default function LocationDetection() {
     setLocationState('navigation');
   };
 
+  // Handle GPS permission request
+  const handleGPSPermissionRequest = async () => {
+    try {
+      const granted = await requestGPSPermission();
+      if (granted) {
+        setPredictionSettings(prev => ({ ...prev, gpsEnabled: true }));
+        toast({
+          title: 'GPS Enabled',
+          description: 'GPS location access granted successfully',
+        });
+      } else {
+        toast({
+          title: 'GPS Permission Denied',
+          description: 'GPS access is required for location-based predictions',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'GPS Error',
+        description: 'Failed to request GPS permission',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Handle settings change
+  const handleSettingsChange = (newSettings: PredictionSettings) => {
+    setPredictionSettings(newSettings);
+
+    // Validate that at least one method is enabled
+    if (!newSettings.gpsEnabled && !newSettings.aiEnabled) {
+      setPredictionSettings(prev => ({ ...prev, aiEnabled: true }));
+      toast({
+        title: 'Invalid Settings',
+        description: 'At least one prediction method must be enabled',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const resetProcess = () => {
     setLocationState('detection');
     setCurrentLocation(null);
@@ -152,6 +297,8 @@ export default function LocationDetection() {
     setUploadedImage(null);
     setIsCameraOpen(false);
     setDetectionMethod('upload');
+    setHybridResult(null);
+    setShowSettings(false);
   };
 
   return (
@@ -165,9 +312,19 @@ export default function LocationDetection() {
           <CardHeader>
             <div className="flex justify-between items-center">
               <CardTitle>Campus Navigation</CardTitle>
-              <Button variant="outline" onClick={resetProcess}>
-                Start Over
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowSettings(!showSettings)}
+                >
+                  <Settings className="h-4 w-4 mr-2" />
+                  Settings
+                </Button>
+                <Button variant="outline" onClick={resetProcess}>
+                  Start Over
+                </Button>
+              </div>
             </div>
             <CardDescription>
               {locationState === 'detection' && "Choose your preferred method to detect your current location"}
@@ -177,6 +334,31 @@ export default function LocationDetection() {
           </CardHeader>
 
           <CardContent>
+            {/* Settings Panel */}
+            {showSettings && (
+              <div className="mb-6">
+                <GPSSettings
+                  settings={predictionSettings}
+                  onSettingsChange={handleSettingsChange}
+                  onRequestGPSPermission={handleGPSPermissionRequest}
+                />
+              </div>
+            )}
+
+            {/* GPS Status Display */}
+            {predictionSettings.gpsEnabled && currentGPSLocation && (
+              <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+                <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">GPS Status</h4>
+                <div className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                  <p>Coordinates: {currentGPSLocation.coordinates.latitude.toFixed(6)}, {currentGPSLocation.coordinates.longitude.toFixed(6)}</p>
+                  {currentGPSLocation.bestMatch && (
+                    <p>Nearest: {currentGPSLocation.bestMatch.name} ({Math.round(currentGPSLocation.bestMatch.distance)}m away)</p>
+                  )}
+                  <p>On Campus: {currentGPSLocation.isOnCampus ? 'Yes' : 'No'}</p>
+                </div>
+              </div>
+            )}
+
             {locationState === 'detection' && (
               <div className="space-y-6">
                 <Tabs value={detectionMethod} onValueChange={(value) => setDetectionMethod(value as DetectionMethod)}>
@@ -224,6 +406,26 @@ export default function LocationDetection() {
                   <div className="mt-2 text-sm text-muted-foreground">
                     Detection Confidence: {Math.round(detectionConfidence * 100)}%
                   </div>
+
+                  {/* Hybrid Prediction Details */}
+                  {hybridResult && (
+                    <div className="mt-4 p-3 bg-background rounded border">
+                      <h4 className="text-sm font-medium mb-2">Prediction Details</h4>
+                      <div className="text-xs space-y-1">
+                        <p>Method: {hybridResult.method}</p>
+                        {hybridResult.method === 'hybrid' && (
+                          <>
+                            <p>GPS Contribution: {Math.round(hybridResult.gpsContribution)}%</p>
+                            <p>AI Contribution: {Math.round(hybridResult.aiContribution)}%</p>
+                          </>
+                        )}
+                        {hybridResult.gpsData && (
+                          <p>GPS Distance: {Math.round(hybridResult.gpsData.distance)}m</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {uploadedImage && (
                     <img
                       src={uploadedImage}
@@ -233,12 +435,19 @@ export default function LocationDetection() {
                   )}
                 </div>
 
-                <LocationSelector
-                  locations={campusLocations.map(loc => loc.name)}
-                  currentLocation={currentLocation || ''}
-                  onSelect={handleDestinationSelect}
-                  selectedLocation={destinationLocation}
-                />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <LocationSelector
+                    locations={campusLocations.map(loc => loc.name)}
+                    currentLocation={currentLocation || ''}
+                    onSelect={handleDestinationSelect}
+                    selectedLocation={destinationLocation}
+                  />
+
+                  {/* Prediction Analysis */}
+                  {hybridResult && (
+                    <PredictionBreakdown hybridResult={hybridResult} />
+                  )}
+                </div>
               </div>
             )}
 

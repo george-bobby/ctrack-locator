@@ -29,10 +29,13 @@ interface RealTimeCameraInlineProps {
 export default function RealTimeCameraInline({
   onLocationDetected
 }: RealTimeCameraInlineProps) {
+  console.log('RealTimeCameraInline component rendered');
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const cameraStateRef = useRef<'idle' | 'starting' | 'running'>('idle');
 
   const [isLoading, setIsLoading] = useState(false);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
@@ -43,6 +46,7 @@ export default function RealTimeCameraInline({
   const [currentPrediction, setCurrentPrediction] = useState<PredictionResult | null>(null);
   const [nextCaptureIn, setNextCaptureIn] = useState<number>(3);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isStartingCamera, setIsStartingCamera] = useState(false);
 
   const { toast } = useToast();
 
@@ -69,7 +73,18 @@ export default function RealTimeCameraInline({
 
   // Start camera stream
   const startCamera = useCallback(async () => {
+    console.log('startCamera called, current state:', cameraStateRef.current);
+
+    // Prevent multiple simultaneous camera starts
+    if (cameraStateRef.current === 'starting' || cameraStateRef.current === 'running') {
+      console.log('Camera start already in progress or running, skipping...');
+      return;
+    }
+
     try {
+      console.log('Starting live detection camera...');
+      cameraStateRef.current = 'starting';
+      setIsStartingCamera(true);
       setIsLoading(true);
 
       // Stop existing stream
@@ -92,11 +107,45 @@ export default function RealTimeCameraInline({
       streamRef.current = stream;
 
       if (videoRef.current) {
+        // Stop any existing video first
+        videoRef.current.pause();
+        videoRef.current.srcObject = null;
+
+        // Small delay to ensure previous stream is fully stopped
+        await new Promise(resolve => setTimeout(resolve, 100));
+
         videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+
+        // Add event listeners for debugging
+        videoRef.current.onloadedmetadata = () => {
+          console.log('Video metadata loaded');
+        };
+        videoRef.current.oncanplay = () => {
+          console.log('Video can play');
+        };
+        videoRef.current.onplaying = () => {
+          console.log('Video is playing');
+        };
+        videoRef.current.onerror = (e) => {
+          console.error('Video error:', e);
+        };
+
+        // Handle video play promise properly with additional checks
+        try {
+          console.log('Attempting to play video...');
+          const playPromise = videoRef.current.play();
+          if (playPromise !== undefined) {
+            await playPromise;
+            console.log('Video play promise resolved');
+          }
+        } catch (error) {
+          console.warn('Video play interrupted:', error);
+          // Don't throw error, just log it as this is often due to rapid state changes
+        }
       }
 
       setHasPermission(true);
+      cameraStateRef.current = 'running';
 
       // Start automatic capture after camera is ready
       setTimeout(() => {
@@ -106,6 +155,7 @@ export default function RealTimeCameraInline({
     } catch (error) {
       console.error('Error starting camera:', error);
       setHasPermission(false);
+      cameraStateRef.current = 'idle';
 
       toast({
         title: 'Camera Error',
@@ -114,14 +164,26 @@ export default function RealTimeCameraInline({
       });
     } finally {
       setIsLoading(false);
+      setIsStartingCamera(false);
     }
   }, [facingMode, currentDeviceId, toast]);
 
   // Stop camera stream
   const stopCamera = useCallback(() => {
+    cameraStateRef.current = 'idle';
+
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
+    }
+
+    if (videoRef.current) {
+      try {
+        videoRef.current.pause();
+        videoRef.current.srcObject = null;
+      } catch (error) {
+        console.warn('Error stopping video:', error);
+      }
     }
 
     if (intervalRef.current) {
@@ -131,6 +193,7 @@ export default function RealTimeCameraInline({
 
     setIsCapturing(false);
     setHasPermission(null);
+    setIsStartingCamera(false);
   }, []);
 
   // Switch between front and back camera
@@ -249,35 +312,68 @@ export default function RealTimeCameraInline({
 
   // Initialize camera when component mounts
   useEffect(() => {
-    getDevices().then(() => {
-      startCamera();
-    });
+    let isMounted = true;
+
+    const initCamera = async () => {
+      try {
+        console.log('Initializing live detection camera...');
+        await getDevices();
+        if (isMounted && cameraStateRef.current === 'idle') {
+          console.log('Starting live detection camera...');
+          await startCamera();
+        }
+      } catch (error) {
+        console.error('Failed to initialize live detection camera:', error);
+      }
+    };
+
+    initCamera();
 
     return () => {
+      isMounted = false;
+      console.log('Cleaning up live detection camera...');
       stopCamera();
     };
-  }, [getDevices, startCamera, stopCamera]);
+  }, [getDevices, startCamera, stopCamera]); // Add back dependencies but with proper guards
 
   // Restart camera when device changes
   useEffect(() => {
-    if (currentDeviceId) {
-      startCamera();
+    console.log('Device change effect triggered:', { currentDeviceId, cameraState: cameraStateRef.current });
+
+    if (currentDeviceId && cameraStateRef.current === 'idle') {
+      console.log('Restarting camera for device change...');
+      // Add a small delay to prevent rapid restarts
+      const timeoutId = setTimeout(() => {
+        startCamera();
+      }, 200);
+
+      return () => clearTimeout(timeoutId);
     }
-  }, [currentDeviceId, startCamera]);
+  }, [currentDeviceId, startCamera]); // Add startCamera back
+
+  console.log('RealTimeCameraInline render state:', {
+    hasPermission,
+    isLoading,
+    isStartingCamera,
+    cameraState: cameraStateRef.current,
+    currentDeviceId
+  });
 
   return (
     <div className="relative">
       {/* Camera View */}
       <div className="relative bg-black aspect-[4/3] overflow-hidden rounded-lg">
-        {hasPermission && !isLoading ? (
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            className="w-full h-full object-cover"
-          />
-        ) : (
+        {/* Always show video element for debugging */}
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className="w-full h-full object-cover"
+          style={{ display: hasPermission && !isLoading ? 'block' : 'none' }}
+        />
+
+        {!(hasPermission && !isLoading) && (
           <div className="flex items-center justify-center h-full text-white">
             {isLoading ? (
               <div className="text-center">

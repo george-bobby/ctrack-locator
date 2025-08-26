@@ -23,6 +23,7 @@ export default function CameraCapture({ isOpen, onClose, onCapture }: CameraCapt
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const cameraStateRef = useRef<'idle' | 'starting' | 'running'>('idle');
 
   const [isLoading, setIsLoading] = useState(false);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
@@ -30,6 +31,7 @@ export default function CameraCapture({ isOpen, onClose, onCapture }: CameraCapt
   const [flashEnabled, setFlashEnabled] = useState(false);
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [currentDeviceId, setCurrentDeviceId] = useState<string>('');
+  const [isStartingCamera, setIsStartingCamera] = useState(false);
 
   const { toast } = useToast();
 
@@ -59,7 +61,15 @@ export default function CameraCapture({ isOpen, onClose, onCapture }: CameraCapt
 
   // Start camera stream
   const startCamera = useCallback(async () => {
+    // Prevent multiple simultaneous camera starts
+    if (cameraStateRef.current === 'starting' || cameraStateRef.current === 'running') {
+      console.log('Camera start already in progress or running, skipping...');
+      return;
+    }
+
     try {
+      cameraStateRef.current = 'starting';
+      setIsStartingCamera(true);
       setIsLoading(true);
 
       // Stop existing stream
@@ -82,15 +92,34 @@ export default function CameraCapture({ isOpen, onClose, onCapture }: CameraCapt
       streamRef.current = stream;
 
       if (videoRef.current) {
+        // Stop any existing video first
+        videoRef.current.pause();
+        videoRef.current.srcObject = null;
+
+        // Small delay to ensure previous stream is fully stopped
+        await new Promise(resolve => setTimeout(resolve, 100));
+
         videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+
+        // Handle video play promise properly with additional checks
+        try {
+          const playPromise = videoRef.current.play();
+          if (playPromise !== undefined) {
+            await playPromise;
+          }
+        } catch (error) {
+          console.warn('Video play interrupted:', error);
+          // Don't throw error, just log it as this is often due to rapid state changes
+        }
       }
 
       setHasPermission(true);
+      cameraStateRef.current = 'running';
       console.log('Camera started successfully');
     } catch (error: any) {
       console.error('Error accessing camera:', error);
       setHasPermission(false);
+      cameraStateRef.current = 'idle';
 
       let errorMessage = 'Please allow camera access to take photos.';
       let errorTitle = 'Camera Access Error';
@@ -123,8 +152,25 @@ export default function CameraCapture({ isOpen, onClose, onCapture }: CameraCapt
           streamRef.current = stream;
 
           if (videoRef.current) {
+            // Stop any existing video first
+            videoRef.current.pause();
+            videoRef.current.srcObject = null;
+
+            // Small delay to ensure previous stream is fully stopped
+            await new Promise(resolve => setTimeout(resolve, 100));
+
             videoRef.current.srcObject = stream;
-            await videoRef.current.play();
+
+            // Handle video play promise properly with additional checks
+            try {
+              const playPromise = videoRef.current.play();
+              if (playPromise !== undefined) {
+                await playPromise;
+              }
+            } catch (error) {
+              console.warn('Video play interrupted:', error);
+              // Don't throw error, just log it as this is often due to rapid state changes
+            }
           }
 
           setHasPermission(true);
@@ -142,18 +188,25 @@ export default function CameraCapture({ isOpen, onClose, onCapture }: CameraCapt
       });
     } finally {
       setIsLoading(false);
+      setIsStartingCamera(false);
     }
-  }, [facingMode, currentDeviceId, toast]);
+  }, [facingMode, currentDeviceId, toast, isStartingCamera]);
 
   // Stop camera stream
   const stopCamera = useCallback(() => {
+    cameraStateRef.current = 'idle';
+
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
     if (videoRef.current) {
+      videoRef.current.pause();
       videoRef.current.srcObject = null;
     }
+
+    setIsStartingCamera(false);
+    setHasPermission(null);
   }, []);
 
   // Capture photo
@@ -208,25 +261,42 @@ export default function CameraCapture({ isOpen, onClose, onCapture }: CameraCapt
 
   // Initialize camera when modal opens
   useEffect(() => {
+    let isMounted = true;
+
     if (isOpen) {
-      getDevices().then(() => {
-        startCamera();
-      });
+      const initCamera = async () => {
+        try {
+          await getDevices();
+          if (isMounted && isOpen) {
+            await startCamera();
+          }
+        } catch (error) {
+          console.error('Failed to initialize camera:', error);
+        }
+      };
+
+      initCamera();
     } else {
       stopCamera();
     }
 
     return () => {
+      isMounted = false;
       stopCamera();
     };
-  }, [isOpen, getDevices, startCamera, stopCamera]);
+  }, [isOpen]); // Remove function dependencies
 
   // Restart camera when device changes
   useEffect(() => {
-    if (isOpen && currentDeviceId) {
-      startCamera();
+    if (isOpen && currentDeviceId && cameraStateRef.current === 'idle') {
+      // Add a small delay to prevent rapid restarts
+      const timeoutId = setTimeout(() => {
+        startCamera();
+      }, 200);
+
+      return () => clearTimeout(timeoutId);
     }
-  }, [currentDeviceId, isOpen, startCamera]);
+  }, [currentDeviceId, isOpen]); // Remove startCamera dependency
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
