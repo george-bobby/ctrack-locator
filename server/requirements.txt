@@ -1,10 +1,25 @@
-setuptools>=65.0.0
-wheel>=0.37.0
-pip>=22.0.0
+# Core build tools
+setuptools==69.5.1
+wheel==0.43.0
+pip==24.0
+
+# Web framework
 Flask==2.3.3
 Flask-Cors==4.0.0
 gunicorn==21.2.0
-inference==0.9.13
-opencv-python-headless==4.8.1.78
+
+# Basic dependencies
+requests==2.31.0
+urllib3==1.26.18
+certifi==2023.7.22
+
+# Image processing - using binary wheels only
 numpy==1.24.3
-pillow==10.0.1
+Pillow==10.0.1
+
+# OpenCV - headless version for servers
+opencv-python-headless==4.8.1.78
+
+# ML inference - this might be the problematic package
+# Comment out if build fails and test without it first
+inference==0.9.13

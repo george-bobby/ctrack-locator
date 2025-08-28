@@ -3,15 +3,16 @@ services:
     name: ctrack-locator-server
     runtime: python
     buildCommand: |
-      python -m pip install --upgrade pip setuptools wheel
-      python -m pip install --no-cache-dir -r requirements.txt
-    startCommand: gunicorn --worker-class=gevent --workers=1 --timeout 180 --bind=0.0.0.0:$PORT index:app
+      python --version
+      python -m pip install --upgrade pip==24.0 setuptools==69.5.1 wheel==0.43.0
+      python -m pip install --no-cache-dir --only-binary=all --prefer-binary -r requirements.txt || python -m pip install --no-cache-dir -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 120 index:app
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.5
       - key: PIP_NO_CACHE_DIR
-        value: 1
-      - key: PYTHONPATH
-        value: /opt/render/project/src
+        value: '1'
       - key: PYTHONUNBUFFERED
-        value: 1
+        value: '1'
+      - key: PYTHONDONTWRITEBYTECODE
+        value: '1'
