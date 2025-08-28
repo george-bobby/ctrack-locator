@@ -205,10 +205,25 @@ def predict_gps():
 
 @app.route("/health", methods=["GET"])
 def health():
+    import sys
     return jsonify({
         "status": "healthy", 
         "inference_available": INFERENCE_AVAILABLE,
-        "roboflow_model_loaded": model is not None
+        "roboflow_model_loaded": model is not None,
+        "python_version": sys.version,
+        "message": "Server is running successfully!"
+    })
+
+@app.route("/", methods=["GET"])
+def root():
+    return jsonify({
+        "message": "C-Track Locator API is running!",
+        "endpoints": [
+            "/health - Server status",
+            "/predict - Image prediction (requires ML dependencies)",
+            "/predict-gps - GPS-based prediction"
+        ],
+        "inference_available": INFERENCE_AVAILABLE
     })
 
 if __name__ == "__main__":
