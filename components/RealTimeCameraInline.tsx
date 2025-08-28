@@ -233,13 +233,10 @@ export default function RealTimeCameraInline({
         formData.append('image', blob, 'frame.jpg');
 
         try {
-          const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || '';
-          const url = baseUrl.endsWith('/') ? `${baseUrl}predict` : `${baseUrl}/predict`;
-
-          const response = await fetch(url, {
+          // Use Next.js API route
+          const response = await fetch('/api/predict', {
             method: 'POST',
             body: formData,
-            mode: 'cors',
           });
 
           if (!response.ok) {

@@ -152,14 +152,10 @@ export default function LocationDetection() {
         formData.append('ai_weight', predictionSettings.aiWeight.toString());
       }
 
-      // Make sure the URL has a trailing slash before 'predict'
-      const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:5000';
-      const url = baseUrl.endsWith('/') ? `${baseUrl}predict` : `${baseUrl}/predict`;
-
-      const res = await fetch(url, {
+      // Use Next.js API route
+      const res = await fetch('/api/predict', {
         method: 'POST',
         body: formData,
-        mode: 'cors',
       });
 
       if (!res.ok) {

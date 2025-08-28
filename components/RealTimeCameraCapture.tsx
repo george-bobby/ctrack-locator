@@ -222,14 +222,10 @@ export default function RealTimeCameraCapture({
       const formData = new FormData();
       formData.append('image', blob, 'frame.jpg');
 
-      // Make sure the URL has a trailing slash before 'predict'
-      const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || '';
-      const url = baseUrl.endsWith('/') ? `${baseUrl}predict` : `${baseUrl}/predict`;
-
-      const res = await fetch(url, {
+      // Use Next.js API route
+      const res = await fetch('/api/predict', {
         method: 'POST',
         body: formData,
-        mode: 'cors',
       });
 
       if (!res.ok) {
