@@ -12,7 +12,7 @@ CORS(app)
 
 # Roboflow API Key & Model
 ROBOFLOW_API_KEY = "MBFBifupwZPFdYcEHX1u"
-MODEL_ID = "c-tracker-gehfu/1"
+MODEL_ID = "c-tracker-awsa5/1"
 model = get_model(model_id=MODEL_ID, api_key=ROBOFLOW_API_KEY)
 
 # Define class labels (must match Roboflow training classes)
