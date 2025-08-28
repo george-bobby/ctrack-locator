@@ -3,9 +3,13 @@ services:
     name: ctrack-locator-server
     runtime: python
     buildCommand: |
-      python --version
-      python -m pip install --upgrade pip==24.0 setuptools==69.5.1 wheel==0.43.0
-      python -m pip install --no-cache-dir --only-binary=all --prefer-binary -r requirements.txt || python -m pip install --no-cache-dir -r requirements.txt
+      echo "=== Python Version Check ==="
+      python3 --version || python --version
+      echo "=== Installing minimal dependencies first ==="
+      python3 -m pip install --upgrade pip
+      python3 -m pip install --no-build-isolation Flask==2.3.3 Flask-Cors==4.0.0 gunicorn==21.2.0
+      echo "=== Installing remaining dependencies ==="
+      python3 -m pip install --no-cache-dir --prefer-binary -r requirements.txt
     startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 120 index:app
     envVars:
       - key: PYTHON_VERSION
