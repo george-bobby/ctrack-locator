@@ -10,7 +10,7 @@ services:
       python3 -m pip install --no-build-isolation Flask==2.3.3 Flask-Cors==4.0.0 gunicorn==21.2.0
       echo "=== Installing remaining dependencies ==="
       python3 -m pip install --no-cache-dir --prefer-binary -r requirements.txt
-    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 120 index:app
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 120 --access-logfile - --error-logfile - index:app
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.5
