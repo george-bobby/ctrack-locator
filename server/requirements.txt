@@ -1,10 +1,14 @@
 # Requirements for deployment
-Flask==2.3.3
-Flask-Cors==4.0.0
-gunicorn==21.2.0
+Flask==3.0.3
+Flask-Cors==4.0.1
+gunicorn==22.0.0
+
+# Build dependencies
+setuptools>=65.0.0
+wheel
 
 # Basic dependencies for image processing and ML inference
-numpy==1.24.3
-Pillow==10.0.1
-opencv-python-headless==4.8.1.78
-inference==0.9.13
+numpy>=1.26.0
+Pillow>=10.3.0
+opencv-python-headless>=4.9.0.80
+inference>=0.9.13

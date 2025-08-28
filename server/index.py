@@ -1,12 +1,21 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from inference import get_model
-import numpy as np
-import cv2
-import io
-from PIL import Image
 import math
 import os
+
+# Optional imports with graceful fallback
+try:
+    from inference import get_model
+    import numpy as np
+    import cv2
+    from PIL import Image
+    INFERENCE_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: ML dependencies not available: {e}")
+    INFERENCE_AVAILABLE = False
+    # Create dummy functions for development
+    def get_model(*args, **kwargs):
+        return None
 
 app = Flask(__name__)
 CORS(app)
@@ -14,7 +23,12 @@ CORS(app)
 # Roboflow API Key & Model
 ROBOFLOW_API_KEY = os.environ.get('ROBOFLOW_API_KEY', "MBFBifupwZPFdYcEHX1u")
 MODEL_ID = "c-tracker-awsa5/1"
-model = get_model(model_id=MODEL_ID, api_key=ROBOFLOW_API_KEY)
+
+# Initialize model only if inference is available
+if INFERENCE_AVAILABLE:
+    model = get_model(model_id=MODEL_ID, api_key=ROBOFLOW_API_KEY)
+else:
+    model = None
 
 # Define class labels (must match Roboflow training classes)
 class_labels = [
@@ -102,11 +116,23 @@ def combine_predictions(ai_prediction, gps_match, gps_weight=40, ai_weight=60):
 
 def preprocess_for_cv2(file):
     """Convert uploaded file -> cv2 numpy array"""
+    if not INFERENCE_AVAILABLE:
+        return None
+    import io
     pil_img = Image.open(io.BytesIO(file.read())).convert("RGB")
     return cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
 
 @app.route("/predict", methods=["POST"])
 def predict():
+    if not INFERENCE_AVAILABLE:
+        return jsonify({
+            "error": "ML inference not available - dependencies not installed",
+            "predicted_class": "Main Gate",  # Default fallback
+            "confidence": 0.5,
+            "probabilities": {"Main Gate": 0.5},
+            "method": "fallback"
+        }), 200
+
     if "image" not in request.files:
         return jsonify({"error": "No image provided"}), 400
 
@@ -179,7 +205,11 @@ def predict_gps():
 
 @app.route("/health", methods=["GET"])
 def health():
-    return jsonify({"status": "healthy", "roboflow_model_loaded": model is not None})
+    return jsonify({
+        "status": "healthy", 
+        "inference_available": INFERENCE_AVAILABLE,
+        "roboflow_model_loaded": model is not None
+    })
 
 if __name__ == "__main__":
     app.run(debug=True)

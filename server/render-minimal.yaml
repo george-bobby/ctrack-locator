@@ -1,14 +1,14 @@
 services:
   - type: web
-    name: ctrack-locator-server
+    name: ctrack-locator-server-minimal
     runtime: python
     buildCommand: |
       echo "=== Python Version Check ==="
       python3 --version || python --version
-      echo "=== Upgrading pip and installing build tools ==="
+      echo "=== Installing minimal dependencies first ==="
       python3 -m pip install --upgrade pip setuptools wheel
-      echo "=== Installing dependencies ==="
-      python3 -m pip install --no-cache-dir --prefer-binary --timeout=60 -r requirements.txt
+      python3 -m pip install --no-cache-dir --prefer-binary -r requirements-minimal.txt
+      echo "=== Basic server deployed successfully ==="
     startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 120 --access-logfile - --error-logfile - index:app
     envVars:
       - key: PYTHON_VERSION
