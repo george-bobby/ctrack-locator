@@ -6,12 +6,13 @@ import cv2
 import io
 from PIL import Image
 import math
+import os
 
 app = Flask(__name__)
 CORS(app)
 
 # Roboflow API Key & Model
-ROBOFLOW_API_KEY = "MBFBifupwZPFdYcEHX1u"
+ROBOFLOW_API_KEY = os.environ.get('ROBOFLOW_API_KEY', "MBFBifupwZPFdYcEHX1u")
 MODEL_ID = "c-tracker-awsa5/1"
 model = get_model(model_id=MODEL_ID, api_key=ROBOFLOW_API_KEY)
 

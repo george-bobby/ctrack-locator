@@ -5,10 +5,8 @@ services:
     buildCommand: |
       echo "=== Python Version Check ==="
       python3 --version || python --version
-      echo "=== Installing minimal dependencies first ==="
+      echo "=== Installing dependencies ==="
       python3 -m pip install --upgrade pip
-      python3 -m pip install --no-build-isolation Flask==2.3.3 Flask-Cors==4.0.0 gunicorn==21.2.0
-      echo "=== Installing remaining dependencies ==="
       python3 -m pip install --no-cache-dir --prefer-binary -r requirements.txt
     startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 120 --access-logfile - --error-logfile - index:app
     envVars:
@@ -20,3 +18,5 @@ services:
         value: '1'
       - key: PYTHONDONTWRITEBYTECODE
         value: '1'
+      - key: ROBOFLOW_API_KEY
+        value: MBFBifupwZPFdYcEHX1u

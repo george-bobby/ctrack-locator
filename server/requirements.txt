@@ -1,10 +1,10 @@
-# Ultra-minimal requirements for initial deployment test
+# Requirements for deployment
 Flask==2.3.3
 Flask-Cors==4.0.0
 gunicorn==21.2.0
 
-# Basic dependencies - add these back one by one after initial deployment works
-# numpy==1.24.3
-# Pillow==10.0.1
-# opencv-python-headless==4.8.1.78
-# inference==0.9.13
+# Basic dependencies for image processing and ML inference
+numpy==1.24.3
+Pillow==10.0.1
+opencv-python-headless==4.8.1.78
+inference==0.9.13
