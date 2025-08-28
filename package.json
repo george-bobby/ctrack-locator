@@ -5,9 +5,9 @@
 	"scripts": {
 		"start": "next start",
 		"dev": "concurrently \"npm run dev:next\" \"npm run dev:flask\" \"npm run dev:ngrok\"",
-		"dev:next": "npx next dev --experimental-https -H 0.0.0.0 -p 3000",
-		"dev:flask": "python prediction/server/index.py",
-		"dev:ngrok": "ngrok http --url=purely-absolute-stinkbug.ngrok-free.app 5000",
+		"next": "npx next dev --experimental-https -H 0.0.0.0 -p 3000",
+		"flask": "python prediction/server/index.py",
+		"ngrok": "ngrok http --url=purely-absolute-stinkbug.ngrok-free.app 5000",
 		"build": "next build",
 		"lint": "next lint"
 	},

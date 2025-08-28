@@ -18,18 +18,18 @@ model.compile(optimizer="adam", loss="categorical_crossentropy",
 # Define class labels
 class_labels = [
     'Main Gate', 'PU Block', 'Architecture Block',
-    'Cross road', 'Block 1', 'Students Square',
-    'Open auditorium', 'Block 4', 'Xpress Cafe',
+    'Cross Road', 'Block 1', 'Students Square',
+    'Open Auditorium', 'Block 4', 'Xpress Cafe',
     'Block 6', 'Amphi theater'
 ]
 
 # Campus location coordinates (matching frontend campus-data.ts)
 campus_locations = [
     {"name": "Main Gate", "lat": 12.863788, "lng": 77.434897},
-    {"name": "Cross road", "lat": 12.862790, "lng": 77.437411},
+    {"name": "Cross Road", "lat": 12.862790, "lng": 77.437411},
     {"name": "Block 1", "lat": 12.863154, "lng": 77.437718},
     {"name": "Students Square", "lat": 12.862314, "lng": 77.438240},
-    {"name": "Open auditorium", "lat": 12.862787, "lng": 77.438580},
+    {"name": "Open Auditorium", "lat": 12.862787, "lng": 77.438580},
     {"name": "Block 4", "lat": 12.862211, "lng": 77.438860},
     {"name": "Xpress Cafe", "lat": 12.862045, "lng": 77.439374},
     {"name": "Block 6", "lat": 12.862103, "lng": 77.439809},

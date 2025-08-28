@@ -15,14 +15,14 @@ export default function CampusLocationsSection() {
         Campus Locations
       </h2>
       <p className="text-center text-muted-foreground max-w-2xl mx-auto mb-12">
-        Explore the 11 key locations around campus that our AI model can recognize. 
+        Explore the 11 key locations around campus that our AI model can recognize.
         These are the places you can navigate to and from using C-TRACK.
       </p>
-      
+
       <Tabs defaultValue={campusLocations[0].name} className="w-full max-w-4xl mx-auto">
         <TabsList className="grid grid-cols-3 md:grid-cols-6 h-auto mb-8">
           {campusLocations.slice(0, 6).map((location) => (
-            <TabsTrigger 
+            <TabsTrigger
               key={location.name}
               value={location.name}
               className="py-2 px-3 text-xs md:text-sm"
@@ -34,7 +34,7 @@ export default function CampusLocationsSection() {
         </TabsList>
         <TabsList className="grid grid-cols-3 md:grid-cols-5 h-auto mb-8">
           {campusLocations.slice(6).map((location) => (
-            <TabsTrigger 
+            <TabsTrigger
               key={location.name}
               value={location.name}
               className="py-2 px-3 text-xs md:text-sm"
@@ -44,7 +44,7 @@ export default function CampusLocationsSection() {
             </TabsTrigger>
           ))}
         </TabsList>
-        
+
         {campusLocations.map((location) => (
           <TabsContent key={location.name} value={location.name}>
             <Card>
@@ -80,10 +80,10 @@ export default function CampusLocationsSection() {
 function getLocationDescription(locationName: string): string {
   const descriptions: Record<string, string> = {
     "Main Gate": "The primary entrance to the campus, featuring the college emblem and security checkpoint.",
-    "Cross road": "A central intersection connecting multiple pathways to different blocks and facilities.",
+    "Cross Road": "A central intersection connecting multiple pathways to different blocks and facilities.",
     "Block 1": "Houses administrative offices and several departments with modern classrooms.",
     "Students Square": "A popular gathering spot for students with seating areas and open space.",
-    "Open auditorium": "An outdoor venue for college events, performances and gatherings.",
+    "Open Auditorium": "An outdoor venue for college events, performances and gatherings.",
     "Block 4": "Contains specialized labs and research facilities for engineering students.",
     "Xpress Cafe": "A favorite spot for students to grab coffee and snacks between classes.",
     "Block 6": "The newest academic building with state-of-the-art lecture halls.",
@@ -91,6 +91,6 @@ function getLocationDescription(locationName: string): string {
     "PU Block": "Houses the post-graduate departments and advanced research facilities.",
     "Architecture Block": "Dedicated to architecture students with design studios and model-making workshops."
   };
-  
+
   return descriptions[locationName] || "A key location on campus with modern facilities.";
 }

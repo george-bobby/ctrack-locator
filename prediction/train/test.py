@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 model = tf.keras.models.load_model("place_detection_model.h5")
 
 # Define class labels (update these according to your dataset)
-class_labels = ['Front Gate(class 1)','PU Block(class 10)', 'Architecture Block(class 11)','Cross road(class 2)', 'Block 1(class 3)', 'Students Square(class 4)', 'Open auditorium(class 5)', 
+class_labels = ['Front Gate(class 1)','PU Block(class 10)', 'Architecture Block(class 11)','Cross Road(class 2)', 'Block 1(class 3)', 'Students Square(class 4)', 'Open Auditorium(class 5)', 
                 'Block 4(class 6)', 'Xpress Cafe(class 7)', 'Block 6(class 8)', 'Amphi theater(class 9)' ]
 
 # Load and preprocess the test image

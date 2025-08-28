@@ -1,193 +1,184 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import logging
-import traceback
+from inference import get_model
+import numpy as np
+import cv2
+import io
+from PIL import Image
+import math
 
 app = Flask(__name__)
-# Configure CORS to allow from anywhere
-CORS(app, origins="*", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-     allow_headers=["Content-Type", "Authorization", "Access-Control-Allow-Credentials"],
-     supports_credentials=True)
+CORS(app)
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Roboflow API Key & Model
+ROBOFLOW_API_KEY = "MBFBifupwZPFdYcEHX1u"
+MODEL_ID = "c-tracker-gehfu/1"
+model = get_model(model_id=MODEL_ID, api_key=ROBOFLOW_API_KEY)
 
-# Mock campus locations data
-CAMPUS_LOCATIONS = [
+# Define class labels (must match Roboflow training classes)
+class_labels = [
+    'Main Gate', 'PU Block', 'Architecture Block',
+    'Cross Road', 'Block 1', 'Students Square',
+    'Open Auditorium', 'Block 4', 'Xpress Cafe',
+    'Block 6', 'Amphi theater'
+]
+
+# Campus location coordinates
+campus_locations = [
     {"name": "Main Gate", "lat": 12.863788, "lng": 77.434897},
-    {"name": "Cross road", "lat": 12.862790, "lng": 77.437411},
+    {"name": "Cross Road", "lat": 12.862790, "lng": 77.437411},
     {"name": "Block 1", "lat": 12.863154, "lng": 77.437718},
     {"name": "Students Square", "lat": 12.862314, "lng": 77.438240},
-    {"name": "Open auditorium", "lat": 12.862787, "lng": 77.438580},
+    {"name": "Open Auditorium", "lat": 12.862787, "lng": 77.438580},
     {"name": "Block 4", "lat": 12.862211, "lng": 77.438860},
-    {"name": "Xpress Cafe", "lat": 12.062045, "lng": 77.439374},
+    {"name": "Xpress Cafe", "lat": 12.862045, "lng": 77.439374},
     {"name": "Block 6", "lat": 12.862103, "lng": 77.439809},
     {"name": "Amphi theater", "lat": 12.861424, "lng": 77.438057},
     {"name": "PU Block", "lat": 12.860511, "lng": 77.437249},
     {"name": "Architecture Block", "lat": 12.860132, "lng": 77.438592}
 ]
 
+def calculate_distance(lat1, lon1, lat2, lon2):
+    """Haversine distance in meters"""
+    R = 6371e3
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
 
-@app.route('/', methods=['GET'])
-def root():
-    """Root endpoint"""
-    return jsonify({
-        'message': 'CTrack Locator Server - Basic Test Version',
-        'status': 'running',
-        'version': 'test-1.0',
-        'endpoints': {
-            '/': 'GET - This endpoint',
-            '/health': 'GET - Health check',
-            '/predict': 'POST - Prediction endpoint (mock data)',
-            '/locations': 'GET - Get all campus locations'
-        }
-    })
+    a = (math.sin(dphi/2)**2 +
+         math.cos(phi1) * math.cos(phi2) * math.sin(dlambda/2)**2)
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
 
+def find_nearest_location(user_lat, user_lng):
+    nearest_location, min_distance = None, float("inf")
+    for loc in campus_locations:
+        dist = calculate_distance(user_lat, user_lng, loc["lat"], loc["lng"])
+        if dist < min_distance:
+            min_distance, nearest_location = dist, loc
 
-@app.route('/health', methods=['GET'])
-def check_health():
-    """Health check endpoint"""
-    return jsonify({
-        'status': 'healthy',
-        'model_loaded': False,
-        'model_type': 'none',
-        'message': 'Basic Flask server running successfully',
-        'locations_count': len(CAMPUS_LOCATIONS)
-    })
+    max_distance = 200  # meters
+    confidence = max(0, min(1, 1 - (min_distance / max_distance)))
 
+    return {
+        "name": nearest_location["name"] if nearest_location else None,
+        "distance": min_distance,
+        "confidence": confidence,
+        "coordinates": nearest_location if nearest_location else None
+    }
 
-@app.route('/locations', methods=['GET'])
-def get_locations():
-    """Get all campus locations"""
-    return jsonify({
-        'status': 'success',
-        'locations': CAMPUS_LOCATIONS,
-        'count': len(CAMPUS_LOCATIONS)
-    })
+def combine_predictions(ai_prediction, gps_match, gps_weight=40, ai_weight=60):
+    if not ai_prediction and not gps_match:
+        return None
 
+    total_weight = gps_weight + ai_weight or 1
+    gps_w, ai_w = gps_weight/total_weight, ai_weight/total_weight
 
-@app.route('/predict', methods=['POST', 'OPTIONS'])
-def predict_location():
-    """Mock prediction endpoint"""
-    # Handle preflight OPTIONS request
-    if request.method == 'OPTIONS':
-        return '', 200
+    scores = {}
 
-    try:
-        logger.info(f"Received prediction request")
-        logger.info(f"Content-Type: {request.content_type}")
-        logger.info(f"Request headers: {dict(request.headers)}")
+    # GPS contribution
+    if gps_match and gps_match["name"]:
+        scores[gps_match["name"]] = gps_w * gps_match["confidence"]
 
-        # Handle different content types
-        data = None
-        image_received = False
+    # AI contribution
+    if ai_prediction and "probabilities" in ai_prediction:
+        for loc, prob in ai_prediction["probabilities"].items():
+            scores[loc] = scores.get(loc, 0) + ai_w * prob
 
-        if request.content_type and 'multipart/form-data' in request.content_type:
-            # Handle file upload (this is what the frontend sends)
-            if 'image' in request.files:
-                image_file = request.files['image']
-                image_received = True
-                logger.info(f"Received image file: {image_file.filename}, size: {len(image_file.read())} bytes")
-                image_file.seek(0)  # Reset file pointer after reading
+    if not scores:
+        return None
 
-                # Get GPS data if provided
-                gps_lat = request.form.get('gps_lat', type=float)
-                gps_lng = request.form.get('gps_lng', type=float)
-                gps_weight = request.form.get('gps_weight', default=40, type=int)
-                ai_weight = request.form.get('ai_weight', default=60, type=int)
+    best_loc = max(scores, key=scores.get)
+    best_score = scores[best_loc]
 
-                data = {
-                    'image_filename': image_file.filename,
-                    'gps_lat': gps_lat,
-                    'gps_lng': gps_lng,
-                    'gps_weight': gps_weight,
-                    'ai_weight': ai_weight,
-                    'form_data': dict(request.form)
-                }
-            else:
-                data = {
-                    'files': list(request.files.keys()),
-                    'form_data': dict(request.form)
-                }
-        elif request.content_type and 'application/json' in request.content_type:
-            data = request.get_json()
-        else:
-            # Try to get JSON anyway
-            try:
-                data = request.get_json(force=True)
-            except:
-                data = {'raw_data': 'No JSON data received'}
+    return {
+        "final_location": best_loc,
+        "final_confidence": best_score,
+        "gps_contribution": (gps_w * gps_match["confidence"]) / best_score * 100 if gps_match and gps_match["name"] == best_loc else 0,
+        "ai_contribution": (ai_w * ai_prediction["probabilities"].get(best_loc, 0)) / best_score * 100 if ai_prediction else 0,
+        "method": "hybrid" if gps_match and ai_prediction else ("gps-only" if gps_match else "ai-only"),
+        "location_scores": scores
+    }
 
-        logger.info(f"Parsed data: {data}")
+def preprocess_for_cv2(file):
+    """Convert uploaded file -> cv2 numpy array"""
+    pil_img = Image.open(io.BytesIO(file.read())).convert("RGB")
+    return cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
 
-        # Mock location classes and their probabilities
-        location_classes = [
-            'Main Gate', 'Cross road', 'Block 1', 'Students Square',
-            'Open auditorium', 'Block 4', 'Xpress Cafe', 'Block 6',
-            'Amphi theater', 'PU Block', 'Architecture Block'
-        ]
+@app.route("/predict", methods=["POST"])
+def predict():
+    if "image" not in request.files:
+        return jsonify({"error": "No image provided"}), 400
 
-        # Generate mock probabilities (frontend expects this format)
-        import random
-        probabilities = {}
-        remaining_prob = 1.0
+    file = request.files["image"]
+    img = preprocess_for_cv2(file)
 
-        for i, location in enumerate(location_classes):
-            if i == len(location_classes) - 1:
-                # Last item gets remaining probability
-                probabilities[location] = remaining_prob
-            else:
-                # Random probability between 0 and remaining
-                prob = random.uniform(0, remaining_prob * 0.8)  # Keep some for others
-                probabilities[location] = prob
-                remaining_prob -= prob
+    # Roboflow inference
+    results = model.infer(img)[0]
 
-        # Sort by probability and pick the highest as predicted class
-        sorted_locations = sorted(probabilities.items(), key=lambda x: x[1], reverse=True)
-        predicted_class = sorted_locations[0][0]
+    if not results.predictions:
+        return jsonify({"error": "No prediction returned"}), 500
 
-        # Normalize probabilities to sum to 1
-        total_prob = sum(probabilities.values())
-        probabilities = {k: v/total_prob for k, v in probabilities.items()}
+    # Format AI predictions
+    probs = {pred.class_name: float(pred.confidence) for pred in results.predictions}
+    top_pred = max(probs, key=probs.get)
 
-        # Frontend expects this exact format
+    ai_prediction = {
+        "predicted_class": top_pred,
+        "probabilities": probs
+    }
+
+    # GPS inputs
+    gps_lat = request.form.get("gps_lat", type=float)
+    gps_lng = request.form.get("gps_lng", type=float)
+    gps_weight = request.form.get("gps_weight", default=40, type=int)
+    ai_weight = request.form.get("ai_weight", default=60, type=int)
+
+    gps_match = find_nearest_location(gps_lat, gps_lng) if gps_lat and gps_lng else None
+
+    if gps_match and gps_match["name"]:
+        hybrid = combine_predictions(ai_prediction, gps_match, gps_weight, ai_weight)
         response = {
-            'predicted_class': predicted_class,
-            'probabilities': probabilities,
-            'confidence': probabilities[predicted_class],
-            'status': 'success',
-            'message': 'Mock prediction generated successfully',
-            'input_data': data,
-            'note': 'This is a test version with mock data',
-            'image_received': image_received
+            "predicted_class": hybrid["final_location"],
+            "confidence": hybrid["final_confidence"],
+            "probabilities": ai_prediction["probabilities"],
+            "hybrid_prediction": hybrid,
+            "gps_data": gps_match,
+            "ai_data": ai_prediction,
+            "method": hybrid["method"]
+        }
+    else:
+        response = {
+            "predicted_class": ai_prediction["predicted_class"],
+            "confidence": ai_prediction["probabilities"][ai_prediction["predicted_class"]],
+            "probabilities": ai_prediction["probabilities"],
+            "ai_data": ai_prediction,
+            "method": "ai-only"
         }
 
-        logger.info("Sending successful response")
-        return jsonify(response)
+    return jsonify(response)
 
-    except Exception as e:
-        logger.error(f"Error in predict_location: {str(e)}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        return jsonify({
-            'status': 'error',
-            'error': str(e),
-            'message': 'Prediction failed',
-            'traceback': traceback.format_exc()
-        }), 500
+@app.route("/predict-gps", methods=["POST"])
+def predict_gps():
+    data = request.get_json()
+    if not data or "latitude" not in data or "longitude" not in data:
+        return jsonify({"error": "GPS coordinates required"}), 400
 
+    gps_match = find_nearest_location(data["latitude"], data["longitude"])
+    if not gps_match or not gps_match["name"]:
+        return jsonify({"error": "No nearby campus location found"}), 404
 
-@app.after_request
-def after_request(response):
-    """Add CORS headers to all responses"""
-    response.headers.add('Access-Control-Allow-Origin', '*')
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,Access-Control-Allow-Credentials')
-    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
-    response.headers.add('Access-Control-Allow-Credentials', 'true')
-    return response
+    return jsonify({
+        "predicted_class": gps_match["name"],
+        "confidence": gps_match["confidence"],
+        "distance": gps_match["distance"],
+        "coordinates": gps_match["coordinates"],
+        "method": "gps-only",
+        "gps_data": gps_match
+    })
 
+@app.route("/health", methods=["GET"])
+def health():
+    return jsonify({"status": "healthy", "roboflow_model_loaded": model is not None})
 
-if __name__ == '__main__':
-    import os
-    port = int(os.environ.get('PORT', 5000))
-    app.run(debug=False, host='0.0.0.0', port=port)
+if __name__ == "__main__":
+    app.run(debug=True)
