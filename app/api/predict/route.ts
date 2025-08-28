@@ -166,7 +166,9 @@ function combinePredictions(
 	};
 }
 
-async function predictWithRoboflow(imageBase64: string): Promise<AIPrediction> {
+async function predictWithRoboflow(
+	imageBase64: string
+): Promise<AIPrediction | null> {
 	try {
 		const response = await axios({
 			method: 'POST',
@@ -178,12 +180,14 @@ async function predictWithRoboflow(imageBase64: string): Promise<AIPrediction> {
 			headers: {
 				'Content-Type': 'application/x-www-form-urlencoded',
 			},
+			timeout: 30000, // 30 second timeout
 		});
 
 		const roboflowData: RoboflowResponse = response.data;
 
 		if (!roboflowData.predictions || roboflowData.predictions.length === 0) {
-			throw new Error('No predictions returned from Roboflow');
+			console.log('No predictions returned from Roboflow for this image');
+			return null;
 		}
 
 		// Convert Roboflow predictions to our format
@@ -204,17 +208,45 @@ async function predictWithRoboflow(imageBase64: string): Promise<AIPrediction> {
 		};
 	} catch (error) {
 		console.error('Roboflow prediction error:', error);
-		throw new Error(
-			`Roboflow API error: ${
-				error instanceof Error ? error.message : 'Unknown error'
-			}`
-		);
+
+		// Return null instead of throwing to allow graceful fallback
+		if (error instanceof Error) {
+			console.error('Roboflow API error details:', error.message);
+		}
+		return null;
 	}
 }
 
+// Fallback prediction when Roboflow fails
+function getFallbackPrediction(): AIPrediction {
+	// Return a default prediction with low confidence
+	return {
+		predicted_class: 'Main Gate',
+		probabilities: {
+			'Main Gate': 0.3,
+			'Cross Road': 0.2,
+			'Block 1': 0.15,
+			'Students Square': 0.1,
+			'Open Auditorium': 0.1,
+			'Block 4': 0.05,
+			'Xpress Cafe': 0.05,
+			'Block 6': 0.03,
+			'Amphi theater': 0.01,
+			'PU Block': 0.01,
+			'Architecture Block': 0.01,
+		},
+	};
+}
+
 // Separate prediction functions
-async function getAIPrediction(imageBase64: string): Promise<AIPrediction> {
-	return await predictWithRoboflow(imageBase64);
+async function getAIPrediction(
+	imageBase64: string
+): Promise<AIPrediction | null> {
+	const result = await predictWithRoboflow(imageBase64);
+
+	// If Roboflow fails completely, we could optionally return a fallback
+	// For now, return null to let the system handle it gracefully
+	return result;
 }
 
 function getGPSPrediction(lat: number, lng: number): GPSMatch {
@@ -238,7 +270,13 @@ function processHybridPrediction(
 				method: 'gps-only',
 			};
 		}
-		return null;
+		// No GPS data available either
+		return {
+			error: 'No location could be determined',
+			message:
+				'Unable to detect location from image and no GPS coordinates provided',
+			method: 'failed',
+		};
 	}
 
 	// Handle AI-only case (when GPS weight is 0 or no GPS data)
@@ -363,6 +401,11 @@ export async function POST(request: NextRequest) {
 			gpsWeight,
 			aiWeight
 		);
+
+		// Check if the response indicates an error
+		if (response && response.error) {
+			return NextResponse.json(response, { status: 422 }); // Unprocessable Entity
+		}
 
 		if (!response) {
 			return NextResponse.json(

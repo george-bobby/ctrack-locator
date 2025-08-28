@@ -97,6 +97,11 @@ export default function ImageUploader({ onImageUpload }: ImageUploaderProps) {
 
       const data = await res.json();
 
+      // Check if there's an error in the response
+      if (data.error) {
+        throw new Error(data.message || data.error);
+      }
+
       const predictedClass = data.predicted_class;
       const probabilities = data.probabilities;
       const confidence = probabilities[predictedClass];

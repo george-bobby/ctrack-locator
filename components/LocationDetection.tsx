@@ -164,6 +164,16 @@ export default function LocationDetection() {
 
       const data = await res.json();
 
+      // Check if there's an error in the response
+      if (data.error) {
+        throw new Error(data.message || data.error);
+      }
+
+      // Check if we have a valid prediction
+      if (!data.predicted_class) {
+        throw new Error('No location could be detected from this image');
+      }
+
       // Handle hybrid prediction response
       if (data.hybrid_prediction) {
         setHybridResult(data.hybrid_prediction);

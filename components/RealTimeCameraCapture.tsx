@@ -234,10 +234,22 @@ export default function RealTimeCameraCapture({
 
       const data = await res.json();
 
+      // Check if there's an error in the response
+      if (data.error) {
+        console.warn('Prediction failed:', data.message || data.error);
+        return null;
+      }
+
+      // Check if we have a valid prediction
+      if (!data.predicted_class) {
+        console.warn('No location detected in this frame');
+        return null;
+      }
+
       return {
         predicted_class: data.predicted_class,
-        confidence: data.confidence,
-        top_predictions: data.top_predictions,
+        confidence: data.confidence || (data.probabilities ? data.probabilities[data.predicted_class] : 0),
+        top_predictions: data.probabilities || {},
         timestamp: Date.now()
       };
     } catch (error) {

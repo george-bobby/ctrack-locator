@@ -245,10 +245,22 @@ export default function RealTimeCameraInline({
 
           const data = await response.json();
 
+          // Check if there's an error in the response
+          if (data.error) {
+            console.warn('Prediction failed:', data.message || data.error);
+            return;
+          }
+
+          // Check if we have a valid prediction
+          if (!data.predicted_class) {
+            console.warn('No location detected in this frame');
+            return;
+          }
+
           const prediction: PredictionResult = {
             predicted_class: data.predicted_class,
-            confidence: data.probabilities[data.predicted_class],
-            top_predictions: data.probabilities,
+            confidence: data.probabilities ? data.probabilities[data.predicted_class] : (data.confidence || 0),
+            top_predictions: data.probabilities || {},
             timestamp: Date.now()
           };
 
