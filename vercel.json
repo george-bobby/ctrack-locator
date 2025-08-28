@@ -1,18 +1,15 @@
 {
-  "functions": {
-    "app/api/predict/route.ts": {
-      "maxDuration": 30
-    },
-    "app/api/health/route.ts": {
-      "maxDuration": 10
-    }
-  },
-  "env": {
-    "ROBOFLOW_API_KEY": "@roboflow-api-key"
-  },
-  "build": {
-    "env": {
-      "DISABLE_API_ROUTES": "false"
-    }
-  }
+	"functions": {
+		"app/api/predict/route.ts": {
+			"maxDuration": 30
+		},
+		"app/api/health/route.ts": {
+			"maxDuration": 10
+		}
+	},
+	"build": {
+		"env": {
+			"DISABLE_API_ROUTES": "false"
+		}
+	}
 }
