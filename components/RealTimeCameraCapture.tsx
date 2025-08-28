@@ -47,6 +47,8 @@ export default function RealTimeCameraCapture({
   const [currentPrediction, setCurrentPrediction] = useState<PredictionResult | null>(null);
   const [nextCaptureIn, setNextCaptureIn] = useState<number>(3);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [initialCountdown, setInitialCountdown] = useState<number>(10);
+  const [isInitialWait, setIsInitialWait] = useState(true);
 
   const { toast } = useToast();
 
@@ -86,6 +88,8 @@ export default function RealTimeCameraCapture({
     setHasPermission(null);
     setIsCapturing(false);
     setNextCaptureIn(3);
+    setIsInitialWait(true);
+    setInitialCountdown(10);
   }, []);
 
   // Start camera stream
@@ -266,30 +270,49 @@ export default function RealTimeCameraCapture({
       clearInterval(intervalRef.current);
     }
 
-    setIsCapturing(true);
-    setNextCaptureIn(3);
+    // Start with initial 10-second wait
+    setIsInitialWait(true);
+    setInitialCountdown(10);
+    setIsCapturing(false);
 
-    // Countdown timer
-    const countdownInterval = setInterval(() => {
-      setNextCaptureIn(prev => {
+    // Initial countdown timer
+    const initialCountdownInterval = setInterval(() => {
+      setInitialCountdown(prev => {
         if (prev <= 1) {
-          // Time to capture
-          (async () => {
-            const frame = await captureFrame();
-            if (frame) {
-              const prediction = await predictLocation(frame);
-              if (prediction) {
-                setCurrentPrediction(prediction);
+          // Initial wait is over, start regular capture cycle
+          clearInterval(initialCountdownInterval);
+          setIsInitialWait(false);
+          setIsCapturing(true);
+          setNextCaptureIn(3);
+
+          // Start regular countdown timer
+          const countdownInterval = setInterval(() => {
+            setNextCaptureIn(prev => {
+              if (prev <= 1) {
+                // Time to capture
+                (async () => {
+                  const frame = await captureFrame();
+                  if (frame) {
+                    const prediction = await predictLocation(frame);
+                    if (prediction) {
+                      setCurrentPrediction(prediction);
+                    }
+                  }
+                })();
+                return 3; // Reset to 3 seconds
               }
-            }
-          })();
-          return 3; // Reset to 3 seconds
+              return prev - 1;
+            });
+          }, 1000);
+
+          intervalRef.current = countdownInterval;
+          return 0;
         }
         return prev - 1;
       });
     }, 1000);
 
-    intervalRef.current = countdownInterval;
+    intervalRef.current = initialCountdownInterval;
   }, [captureFrame, predictLocation]);
 
   // Switch camera (front/back)
@@ -405,8 +428,28 @@ export default function RealTimeCameraCapture({
               </div>
             )}
 
+            {/* Initial Wait Status */}
+            {isInitialWait && (
+              <div className="absolute bottom-4 left-4 right-4 bg-blue-900/90 backdrop-blur-sm rounded-lg p-4 text-white">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4" />
+                    <span className="text-sm">Preparing camera...</span>
+                  </div>
+                  <span className="font-bold">{initialCountdown}s</span>
+                </div>
+                <Progress
+                  value={((10 - initialCountdown) / 10) * 100}
+                  className="h-2"
+                />
+                <div className="text-xs text-blue-200 mt-2">
+                  Detection will start automatically
+                </div>
+              </div>
+            )}
+
             {/* Capture Status */}
-            {isCapturing && (
+            {isCapturing && !isInitialWait && (
               <div className="absolute bottom-4 left-4 right-4 bg-black/80 backdrop-blur-sm rounded-lg p-3 text-white">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">

@@ -16,6 +16,7 @@ export default function ImageUploader({ onImageUpload }: ImageUploaderProps) {
   const [preview, setPreview] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [predictionError, setPredictionError] = useState<string | null>(null);
   const { toast } = useToast();
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -76,6 +77,7 @@ export default function ImageUploader({ onImageUpload }: ImageUploaderProps) {
 
     try {
       setIsLoading(true);
+      setPredictionError(null); // Clear any previous errors
 
       // Convert base64 to blob
       const response = await fetch(preview);
@@ -99,7 +101,9 @@ export default function ImageUploader({ onImageUpload }: ImageUploaderProps) {
 
       // Check if there's an error in the response
       if (data.error) {
-        throw new Error(data.message || data.error);
+        // Set error state instead of showing toast
+        setPredictionError(data.message || data.error);
+        return;
       }
 
       const predictedClass = data.predicted_class;
@@ -114,14 +118,11 @@ export default function ImageUploader({ onImageUpload }: ImageUploaderProps) {
       });
     } catch (err) {
       console.error('Error:', err);
-      toast({
-        title: 'Detection Failed',
-        description:
-          err instanceof Error
-            ? err.message
-            : 'Failed to detect location. Please try a different image or try again later.',
-        variant: 'destructive',
-      });
+      // Set error state instead of showing toast for prediction failures
+      const errorMessage = err instanceof Error
+        ? err.message
+        : 'Failed to detect location. Please try a different image or try again later.';
+      setPredictionError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -130,6 +131,7 @@ export default function ImageUploader({ onImageUpload }: ImageUploaderProps) {
   const clearImage = (e: React.MouseEvent) => {
     e.stopPropagation();
     setPreview(null);
+    setPredictionError(null); // Clear error when clearing image
   };
 
   const handleCameraCapture = useCallback((imageDataUrl: string) => {
@@ -222,6 +224,29 @@ export default function ImageUploader({ onImageUpload }: ImageUploaderProps) {
         )}
       </div>
 
+      {/* Error Display */}
+      {predictionError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+          <div className="text-red-800 font-medium mb-2">
+            Unable to detect location
+          </div>
+          <div className="text-red-600 text-sm mb-3">
+            {predictionError}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setPreview(null);
+              setPredictionError(null);
+            }}
+            className="text-red-700 border-red-300 hover:bg-red-100"
+          >
+            Upload Another Image
+          </Button>
+        </div>
+      )}
+
       <div className="flex gap-2">
         <Button
           variant="outline"
@@ -232,7 +257,7 @@ export default function ImageUploader({ onImageUpload }: ImageUploaderProps) {
           Take Photo
         </Button>
 
-        {preview && (
+        {preview && !predictionError && (
           <Button className="flex-1" onClick={handleSubmit} disabled={isLoading}>
             {isLoading ? 'Detecting Location...' : 'Detect Location'}
             {!isLoading && <Upload className="ml-2 h-4 w-4" />}

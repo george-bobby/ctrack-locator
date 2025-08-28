@@ -47,6 +47,8 @@ export default function RealTimeCameraInline({
   const [nextCaptureIn, setNextCaptureIn] = useState<number>(3);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isStartingCamera, setIsStartingCamera] = useState(false);
+  const [initialCountdown, setInitialCountdown] = useState<number>(10);
+  const [isInitialWait, setIsInitialWait] = useState(true);
 
   const { toast } = useToast();
 
@@ -278,27 +280,46 @@ export default function RealTimeCameraInline({
     }
   }, [isProcessing]);
 
-  // Start automatic capture every 3 seconds
+  // Start automatic capture with initial delay
   const startAutomaticCapture = useCallback(() => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
     }
 
-    setIsCapturing(true);
-    setNextCaptureIn(3);
+    // Start with initial 10-second wait
+    setIsInitialWait(true);
+    setInitialCountdown(10);
+    setIsCapturing(false);
 
-    // Countdown timer
-    const countdownInterval = setInterval(() => {
-      setNextCaptureIn(prev => {
+    // Initial countdown timer
+    const initialCountdownInterval = setInterval(() => {
+      setInitialCountdown(prev => {
         if (prev <= 1) {
-          captureFrame();
-          return 3; // Reset to 3 seconds
+          // Initial wait is over, start regular capture cycle
+          clearInterval(initialCountdownInterval);
+          setIsInitialWait(false);
+          setIsCapturing(true);
+          setNextCaptureIn(3);
+
+          // Start regular countdown timer
+          const countdownInterval = setInterval(() => {
+            setNextCaptureIn(prev => {
+              if (prev <= 1) {
+                captureFrame();
+                return 3; // Reset to 3 seconds
+              }
+              return prev - 1;
+            });
+          }, 1000);
+
+          intervalRef.current = countdownInterval;
+          return 0;
         }
         return prev - 1;
       });
     }, 1000);
 
-    intervalRef.current = countdownInterval;
+    intervalRef.current = initialCountdownInterval;
   }, [captureFrame]);
 
   // Stop automatic capture
@@ -308,6 +329,8 @@ export default function RealTimeCameraInline({
       intervalRef.current = null;
     }
     setIsCapturing(false);
+    setIsInitialWait(true);
+    setInitialCountdown(10);
   }, []);
 
   // Handle location selection
@@ -426,8 +449,28 @@ export default function RealTimeCameraInline({
           </div>
         )}
 
+        {/* Initial Wait Status */}
+        {isInitialWait && (
+          <div className="absolute bottom-4 left-4 right-4 bg-blue-900/90 backdrop-blur-sm rounded-lg p-4 text-white">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                <span className="text-sm">Preparing camera...</span>
+              </div>
+              <span className="font-bold">{initialCountdown}s</span>
+            </div>
+            <Progress
+              value={((10 - initialCountdown) / 10) * 100}
+              className="h-2"
+            />
+            <div className="text-xs text-blue-200 mt-2">
+              Detection will start automatically
+            </div>
+          </div>
+        )}
+
         {/* Capture Status */}
-        {isCapturing && (
+        {isCapturing && !isInitialWait && (
           <div className="absolute bottom-4 left-4 right-4 bg-black/80 backdrop-blur-sm rounded-lg p-3 text-white">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
