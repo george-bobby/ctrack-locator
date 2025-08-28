@@ -11,7 +11,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Load the model
-model = tf.keras.models.load_model("server/models/vgg16.h5", compile=False)
+model = tf.keras.models.load_model("../models/vgg16.h5", compile=False)
 model.compile(optimizer="adam", loss="categorical_crossentropy",
               metrics=["accuracy"])
 
