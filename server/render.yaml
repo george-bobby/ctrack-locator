@@ -11,6 +11,8 @@ services:
       echo "=== Basic server deployed successfully ==="
     startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 120 --access-logfile - --error-logfile - index:app
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.12
       - key: PIP_NO_CACHE_DIR
         value: '1'
       - key: PYTHONUNBUFFERED
