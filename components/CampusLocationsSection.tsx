@@ -87,7 +87,7 @@ function getLocationDescription(locationName: string): string {
     "Block 4": "Contains specialized labs and research facilities for engineering students.",
     "Xpress Cafe": "A favorite spot for students to grab coffee and snacks between classes.",
     "Block 6": "The newest academic building with state-of-the-art lecture halls.",
-    "Amphi theater": "A semi-circular outdoor theater used for cultural events and ceremonies.",
+    "Amphi Theater": "A semi-circular outdoor theater used for cultural events and ceremonies.",
     "PU Block": "Houses the post-graduate departments and advanced research facilities.",
     "Architecture Block": "Dedicated to architecture students with design studios and model-making workshops."
   };

@@ -61,7 +61,7 @@ const campusLocations: CampusLocation[] = [
 	{ name: 'Block 4', lat: 12.862211, lng: 77.43886 },
 	{ name: 'Xpress Cafe', lat: 12.862045, lng: 77.439374 },
 	{ name: 'Block 6', lat: 12.862103, lng: 77.439809 },
-	{ name: 'Amphi theater', lat: 12.861424, lng: 77.438057 },
+	{ name: 'Amphi Theater', lat: 12.861424, lng: 77.438057 },
 	{ name: 'PU Block', lat: 12.860511, lng: 77.437249 },
 	{ name: 'Architecture Block', lat: 12.860132, lng: 77.438592 },
 ];
@@ -231,7 +231,7 @@ function getFallbackPrediction(): AIPrediction {
 			'Block 4': 0.05,
 			'Xpress Cafe': 0.05,
 			'Block 6': 0.03,
-			'Amphi theater': 0.01,
+			'Amphi Theater': 0.01,
 			'PU Block': 0.01,
 			'Architecture Block': 0.01,
 		},
