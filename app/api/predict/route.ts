@@ -244,8 +244,12 @@ async function getAIPrediction(
 ): Promise<AIPrediction | null> {
 	const result = await predictWithRoboflow(imageBase64);
 
-	// If Roboflow fails completely, we could optionally return a fallback
-	// For now, return null to let the system handle it gracefully
+	// If Roboflow fails completely, return a fallback prediction
+	if (!result) {
+		console.log('Roboflow failed, using fallback prediction');
+		return getFallbackPrediction();
+	}
+
 	return result;
 }
 
